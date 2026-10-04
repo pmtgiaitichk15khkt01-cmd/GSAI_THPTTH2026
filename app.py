@@ -175,7 +175,14 @@ raw_sheet_url = get_secret("GOOGLE_SHEET_URL")
 sheet_webhook_url = "".join(raw_sheet_url.split()) if raw_sheet_url else ""
 
 sheet_view_url_secret = get_secret("GOOGLE_SHEET_VIEW_URL")
-sheet_view_url = "".join(sheet_view_url_secret.split()) if sheet_view_url_secret else sheet_webhook_url
+DEFAULT_SHEET_VIEW_URL = "https://docs.google.com/spreadsheets/d/1fnG9qxmtQ5sa1C8Sb5Z9hepzB2G8asNVgSk05p7Pu9M/edit?gid=0#gid=0"
+if sheet_view_url_secret:
+    sheet_view_url = "".join(sheet_view_url_secret.split())
+    # Tự động sửa lỗi typo OCR trong ID nếu có
+    if "1InG9qxmTQ5saIc8Sb5Z9nepZbZG8asNVgSk05p7Pu9M" in sheet_view_url:
+        sheet_view_url = DEFAULT_SHEET_VIEW_URL
+else:
+    sheet_view_url = DEFAULT_SHEET_VIEW_URL
 
 if not st.session_state.global_stats_loaded and sheet_webhook_url:
     try:
@@ -3024,11 +3031,12 @@ with tab4:
     with tab_log2:
         if sheet_webhook_url:
             st.success("🟢 Webhook Google Sheets đang kết nối liên tục!")
-            if sheet_view_url:
-                st.link_button("🌐 Mở Bảng Google Sheets minh chứng trên cửa sổ mới", sheet_view_url, width="stretch")
-                if "docs.google.com/spreadsheets" in sheet_view_url:
-                    embed_sheet_url = sheet_view_url.split('/edit')[0] + '/htmlembed?widget=true&headers=false'
-                    st.components.v1.iframe(embed_sheet_url, height=500, scrolling=True)
+        if sheet_view_url:
+            st.link_button("🌐 Mở Bảng Google Sheets minh chứng trên cửa sổ mới", sheet_view_url, width="stretch")
+            if "docs.google.com/spreadsheets" in sheet_view_url:
+                embed_sheet_url = sheet_view_url.split('/edit')[0] + '/htmlembed?widget=true&headers=false'
+                st.components.v1.iframe(embed_sheet_url, height=520, scrolling=True)
+                st.caption("💡 **Lưu ý để nhúng hiển thị trực tiếp:** Vui lòng mở Google Sheets, nhấn nút **'Chia sẻ' (Share)** góc phải trên ➔ Chuyển quyền từ *'Hạn chế'* sang **'Bất kỳ ai có đường liên kết đều có thể xem'** (Anyone with the link can view). Hoặc click nút **'Mở Bảng Google Sheets minh chứng'** ở trên để xem trực tiếp.")
 
     # ------------------------------------------------------------------------------
     # TÍNH NĂNG ĐẶC BIỆT KHKT: HỆ THỐNG AUTO-PATCH TỰ VÁ LỖI TỪ YÊU CẦU CỦA BGK
