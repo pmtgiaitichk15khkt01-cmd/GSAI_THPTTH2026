@@ -1110,74 +1110,305 @@ st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - 
 # ==============================================================================
 # HE THONG PHAT AM SU PHAM THONG MINH CHUAN BO GD&DT & QUOC TE
 # ==============================================================================
-def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key: str):
-    clean_txt = re.sub(r'[\$\#\*\`\_\~]', '', raw_text)
-    if subject_name != "Tiếng Anh":
-        clean_txt = clean_txt.replace(r'\frac', ' phan so, ')
-        clean_txt = clean_txt.replace(r'\int', ' tich phan nguyen ham cua, ')
-        clean_txt = clean_txt.replace(r'\sqrt', ' can bac hai cua, ')
-        clean_txt = clean_txt.replace(r'\lim', ' gioi han khi, ')
-        clean_txt = clean_txt.replace('^2', ' binh phuong, ')
-        clean_txt = clean_txt.replace('^3', ' lap phuong, ')
-        clean_txt = clean_txt.replace(r'\vec', ' vec to, ')
-        clean_txt = clean_txt.replace(r'\alpha', ' an pha, ')
-        clean_txt = clean_txt.replace(r'\beta', ' be ta, ')
-        clean_txt = clean_txt.replace(r'\pi', ' pi, ')
-        clean_txt = clean_txt.replace(r'\infty', ' vo cuc, ')
-        clean_txt = re.sub(r'\bH2SO4\b', 'axit sunfuric, H hai S O bon,', clean_txt)
-        clean_txt = re.sub(r'\bHCl\b', 'axit clohidric, H C lo,', clean_txt)
-        clean_txt = re.sub(r'\bCO2\b', 'khi cacbon dioxit, C O hai,', clean_txt)
-        clean_txt = re.sub(r'\bH2O\b', 'nuoc, H hai O,', clean_txt)
-        clean_txt = re.sub(r'\bNaOH\b', 'natri hidroxit,', clean_txt)
-        clean_txt = re.sub(r'\bNaCl\b', 'natri clorua,', clean_txt)
-        clean_txt = re.sub(r'\bC2H5OH\b', 'ancol etylic, etanol,', clean_txt)
-        clean_txt = re.sub(r'\bCH3COOH\b', 'axit axetic,', clean_txt)
-        is_english = "false"
-        lang_code = "vi-VN"
-        rate_val = "0.86"
-        btn_label = "🔊 Nghe Giang Bai Su Pham (Giong Chuan Nam Bo / Tieng Viet)"
-    else:
-        is_english = "true"
-        lang_code = "en-US"
-        rate_val = "0.92"
-        btn_label = "🔊 Listen to Native English Tutor (Standard Accent)"
+def split_text_for_cloud_tts(text: str, max_len: int = 160) -> list:
+    raw_parts = re.split(r'([.?!;\n]+)', text)
+    merged = []
+    buf = ""
+    for p in raw_parts:
+        if not p: continue
+        if len(buf) + len(p) <= max_len:
+            buf += p
+        else:
+            if buf.strip(): merged.append(buf.strip())
+            buf = p
+    if buf.strip(): merged.append(buf.strip())
+    final_chunks = []
+    for m in merged:
+        if len(m) > max_len:
+            comma_parts = re.split(r'([,:]+)', m)
+            cbuf = ""
+            for cp in comma_parts:
+                if len(cbuf) + len(cp) <= max_len:
+                    cbuf += cp
+                else:
+                    if cbuf.strip(): final_chunks.append(cbuf.strip())
+                    cbuf = cp
+            if cbuf.strip(): final_chunks.append(cbuf.strip())
+        else:
+            final_chunks.append(m)
+    return [c for c in final_chunks if c.strip()]
 
-    safe_payload = json.dumps(clean_txt[:2500]).replace("</", "<\\/")
+def normalize_pedagogical_speech_text(raw_text: str, subject_name: str) -> str:
+    txt = raw_text
+    txt = re.sub(r'```[\s\S]*?```', ' ', txt)
+    txt = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', txt)
+    txt = re.sub(r'[\#\*\_\~\`\|]', ' ', txt)
+    
+    if subject_name == "Tiếng Anh":
+        txt = re.sub(r'\$([^\$]+)\$', r'\1', txt)
+        return re.sub(r'\s+', ' ', txt).strip()
+
+    # 1. TOÁN HỌC & GIẢI TÍCH CHUẨN GDPT 2018
+    txt = re.sub(r'\\int_\{?([^_\^\s\}]+)\}?\^\{?([^_\^\s\{\}]+)\}?', r' tích phân từ \1 đến \2 của ', txt)
+    txt = re.sub(r'\\int\b', ' nguyên hàm của ', txt)
+    txt = re.sub(r'\\frac\{([^\}]+)\}\{([^\}]+)\}', r' phân số \1 trên \2, ', txt)
+    txt = re.sub(r'\\sqrt\[(\d+)\]\{([^\}]+)\}', r' căn bậc \1 của \2, ', txt)
+    txt = re.sub(r'\\sqrt\{([^\}]+)\}', r' căn bậc hai của \1, ', txt)
+    txt = re.sub(r'\\lim_\{([^\}]+)\}', r' giới hạn khi \1, ', txt)
+    txt = re.sub(r'\\vec\{([^\}]+)\}', r' véc-tơ \1, ', txt)
+    txt = re.sub(r'\\overrightarrow\{([^\}]+)\}', r' véc-tơ \1, ', txt)
+    txt = re.sub(r'\^2\b|\^\{2\}', ' bình phương ', txt)
+    txt = re.sub(r'\^3\b|\^\{3\}', ' lập phương ', txt)
+    txt = re.sub(r'\^\{([^\}]+)\}', r' mũ \1 ', txt)
+    txt = re.sub(r'\^([0-9a-zA-Z])', r' mũ \1 ', txt)
+    txt = re.sub(r'_\{([^\}]+)\}', r' chỉ số \1 ', txt)
+    txt = txt.replace(r'\alpha', ' an-pha ').replace(r'\beta', ' bê-ta ').replace(r'\gamma', ' ga-ma ')
+    txt = txt.replace(r'\Delta', ' Đen-ta ').replace(r'\delta', ' đen-ta ').replace(r'\pi', ' pi ')
+    txt = txt.replace(r'\infty', ' vô cực ').replace(r'\pm', ' cộng trừ ')
+    txt = txt.replace(r'\le', ' nhỏ hơn hoặc bằng ').replace(r'\leq', ' nhỏ hơn hoặc bằng ')
+    txt = txt.replace(r'\ge', ' lớn hơn hoặc bằng ').replace(r'\geq', ' lớn hơn hoặc bằng ')
+    txt = txt.replace(r'\neq', ' khác ').replace(r'\approx', ' xấp xỉ ')
+    txt = txt.replace(r'\in', ' thuộc ').replace(r'\notin', ' không thuộc ')
+    txt = txt.replace(r'\subset', ' tập con của ').replace(r'\cup', ' hợp ').replace(r'\cap', ' giao ')
+    txt = txt.replace(r'\to', ' tiến tới ').replace(r'\rightarrow', ' tiến tới ')
+    txt = txt.replace(r'\log', ' lô-ga-rít ').replace(r'\ln', ' lô-ga-rít tự nhiên ')
+    txt = txt.replace(r'\sin', ' sin ').replace(r'\cos', ' cos ').replace(r'\tan', ' tan ').replace(r'\cot', ' cô-tan ')
+
+    # 2. VẬT LÝ & KHTN
+    txt = re.sub(r'\bm/s\^2\b|\bm/s2\b', ' mét trên giây bình phương ', txt)
+    txt = re.sub(r'\bm/s\b', ' mét trên giây ', txt)
+    txt = re.sub(r'\bkm/h\b', ' ki-lô-mét trên giờ ', txt)
+    txt = re.sub(r'\bkWh\b', ' ki-lô-oát giờ ', txt)
+    txt = re.sub(r'(\d+)\s*N\b', r'\1 Niu-tơn ', txt)
+    txt = re.sub(r'(\d+)\s*J\b', r'\1 Jun ', txt)
+    txt = re.sub(r'(\d+)\s*W\b', r'\1 Oát ', txt)
+    txt = re.sub(r'(\d+)\s*V\b', r'\1 Vôn ', txt)
+    txt = re.sub(r'(\d+)\s*A\b', r'\1 Am-pe ', txt)
+    txt = txt.replace(r'\lambda', ' bước sóng lam-đa ').replace(r'\omega', ' tần số góc ô-mê-ga ')
+
+    # 3. HÓA HỌC CHUẨN IUPAC & GDPT 2018
+    txt = re.sub(r'\bH2SO4\b', ' sulfuric acid, sun-fu-ric a-xít, H 2 S O 4, ', txt)
+    txt = re.sub(r'\bHCl\b', ' hydrochloric acid, hi-đrô-clo-ric a-xít, H C l, ', txt)
+    txt = re.sub(r'\bHNO3\b', ' nitric acid, ni-tric a-xít, H N O 3, ', txt)
+    txt = re.sub(r'\bNaOH\b', ' sodium hydroxide, sô-đi-um hi-đrốc-xít, N a O H, ', txt)
+    txt = re.sub(r'\bKOH\b', ' potassium hydroxide, pô-tát-si-um hi-đrốc-xít, K O H, ', txt)
+    txt = re.sub(r'\bNaCl\b', ' sodium chloride, sô-đi-um clo-rua, N a C l, ', txt)
+    txt = re.sub(r'\bCO2\b', ' carbon dioxide, các-bon đi-ô-xít, C O 2, ', txt)
+    txt = re.sub(r'\bSO2\b', ' sulfur dioxide, sun-fua đi-ô-xít, S O 2, ', txt)
+    txt = re.sub(r'\bH2O\b', ' nước, H 2 O, ', txt)
+    txt = re.sub(r'\bCH4\b', ' methane, mê-than, C H 4, ', txt)
+    txt = re.sub(r'\bC2H6\b', ' ethane, ê-than, C 2 H 6, ', txt)
+    txt = re.sub(r'\bC2H4\b', ' ethylene, ê-thi-len, C 2 H 4, ', txt)
+    txt = re.sub(r'\bC2H2\b', ' acetylene, a-xê-ti-len, C 2 H 2, ', txt)
+    txt = re.sub(r'\bC2H5OH\b', ' ethanol, ê-tha-nol, C 2 H 5 O H, ', txt)
+    txt = re.sub(r'\bCH3COOH\b', ' acetic acid, a-xê-tic a-xít, C H 3 C O O H, ', txt)
+    txt = re.sub(r'\bC6H12O6\b', ' glucose, glu-cô-zơ, C 6 H 12 O 6, ', txt)
+    txt = re.sub(r'\bC12H22O11\b', ' saccharose, sác-ca-rô-zơ, C 12 H 22 O 11, ', txt)
+
+    # 4. SINH HỌC & KHKT
+    txt = re.sub(r'\bADN\b|\bDNA\b', ' phân tử ADN ', txt)
+    txt = re.sub(r'\bARN\b|\bRNA\b', ' phân tử ARN ', txt)
+    txt = re.sub(r'\bmARN\b', ' m-ARN thông tin ', txt)
+    txt = re.sub(r'\btARN\b', ' t-ARN vận chuyển ', txt)
+    txt = re.sub(r'\bATP\b', ' năng lượng ATP ', txt)
+
+    txt = txt.replace('$', ' ')
+    txt = re.sub(r'\s+', ' ', txt)
+    return txt.strip()
+
+def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key: str):
+    clean_txt = normalize_pedagogical_speech_text(raw_text, subject_name)
+    if not clean_txt:
+        return
+
+    is_english = "true" if subject_name == "Tiếng Anh" else "false"
+    lang_code = "en-US" if subject_name == "Tiếng Anh" else "vi"
+    rate_val = "0.92" if subject_name == "Tiếng Anh" else "0.88"
+    btn_label = "🔊 Nghe Giảng Bài Sư Phạm (Giọng Nhẹ Nhàng / Chuẩn Tiếng Việt)" if subject_name != "Tiếng Anh" else "🔊 Listen to Native English Tutor (US/UK Accent IELTS/TOEFL)"
+
+    chunks = split_text_for_cloud_tts(clean_txt[:3500])
+    if not chunks:
+        chunks = [clean_txt[:160]]
+
+    safe_chunks_json = json.dumps(chunks).replace("</", "<\\/")
+    safe_full_text = json.dumps(clean_txt[:3500]).replace("</", "<\\/")
     
     tts_html = f"""
-    <div style="margin: 10px 0; display: flex; align-items: center; gap: 8px;">
-        <button onclick="playPedagogicalAudio_{comp_key}()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px;">
-            {btn_label}
-        </button>
-        <button onclick="stopPedagogicalAudio_{comp_key}()" style="background: #334155; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13.5px;">
-            ⏹ Dung phat
-        </button>
+    <div style="margin: 10px 0; padding: 10px 14px; background: linear-gradient(145deg, #0f172a, #1e293b); border-radius: 12px; border: 1px solid #334155; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+            <button id="btn_play_{comp_key}" onclick="playPedagogicalAudio_{comp_key}()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; transition: all 0.2s ease;">
+                {btn_label}
+            </button>
+            <button id="btn_pause_{comp_key}" onclick="pauseOrResumeAudio_{comp_key}()" style="background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; display: none;">
+                ⏸ Tạm dừng
+            </button>
+            <button onclick="stopPedagogicalAudio_{comp_key}()" style="background: #1e293b; color: #f87171; border: 1px solid #7f1d1d; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                ⏹ Dừng
+            </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">Tốc độ:</span>
+            <select id="rate_select_{comp_key}" onchange="changeRate_{comp_key}(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                <option value="0.85">0.85x (Chậm rãi, từ tốn)</option>
+                <option value="0.92" selected>0.9x (Chuẩn Sư phạm)</option>
+                <option value="1.00">1.0x (Tự nhiên)</option>
+            </select>
+            <span id="audio_status_{comp_key}" style="color: #34d399; font-size: 12px; font-weight: 600; margin-left: 4px;"></span>
+        </div>
     </div>
     <script>
-    function playPedagogicalAudio_{comp_key}() {{
-        window.speechSynthesis.cancel();
-        const text = {safe_payload};
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = '{lang_code}';
-        u.rate = {rate_val};
-        u.pitch = 1.05;
-        
-        const voices = window.speechSynthesis.getVoices();
-        if ({is_english}) {{
-            const engV = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('US')));
-            if (engV) u.voice = engV;
-        }} else {{
-            const vnV = voices.find(v => v.lang.startsWith('vi') && (v.name.includes('South') || v.name.includes('Nam') || v.name.includes('Linh') || v.name.includes('An')));
-            if (vnV) u.voice = vnV;
+    (function() {{
+        const chunks = {safe_chunks_json};
+        const fullText = {safe_full_text};
+        let currentIndex = 0;
+        let isPlaying = false;
+        let isPaused = false;
+        let currentRate = {rate_val};
+        let useCloudTTS = true;
+        let audioElement = new Audio();
+
+        const btnPlay = document.getElementById("btn_play_{comp_key}");
+        const btnPause = document.getElementById("btn_pause_{comp_key}");
+        const statusEl = document.getElementById("audio_status_{comp_key}");
+
+        function updateStatus(text) {{
+            if (statusEl) statusEl.innerText = text;
         }}
-        window.speechSynthesis.speak(u);
-    }}
-    function stopPedagogicalAudio_{comp_key}() {{
-        window.speechSynthesis.cancel();
-    }}
+
+        function getCloudTTSUrl(text) {{
+            const lang = {is_english} ? 'en-US' : 'vi';
+            return 'https://translate.google.com/translate_tts?ie=UTF-8&tl=' + lang + '&client=tw-ob&q=' + encodeURIComponent(text);
+        }}
+
+        function getBestDeviceVoice() {{
+            const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+            if ({is_english}) {{
+                return voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('US') || v.name.includes('Samantha'))) ||
+                       voices.find(v => v.lang.startsWith('en')) || null;
+            }} else {{
+                return voices.find(v => (v.lang === 'vi-VN' || v.lang.startsWith('vi')) && (v.name.includes('South') || v.name.includes('Nam') || v.name.includes('Minh') || v.name.includes('Linh') || v.name.includes('An') || v.name.includes('HoaiMy'))) ||
+                       voices.find(v => v.lang === 'vi-VN' || v.lang.startsWith('vi')) || null;
+            }}
+        }}
+
+        window.playPedagogicalAudio_{comp_key} = function() {{
+            window.stopPedagogicalAudio_{comp_key}();
+            isPlaying = true;
+            isPaused = false;
+            currentIndex = 0;
+            if (btnPause) {{ btnPause.style.display = "inline-block"; btnPause.innerText = "⏸ Tạm dừng"; }}
+            playCurrentChunk();
+        }};
+
+        function playCurrentChunk() {{
+            if (!isPlaying || currentIndex >= chunks.length) {{
+                window.stopPedagogicalAudio_{comp_key}();
+                updateStatus("Đã xong!");
+                return;
+            }}
+
+            const chunkText = chunks[currentIndex];
+            updateStatus("Đang đọc (" + (currentIndex + 1) + "/" + chunks.length + ")...");
+
+            if (useCloudTTS) {{
+                try {{
+                    audioElement.src = getCloudTTSUrl(chunkText);
+                    audioElement.playbackRate = currentRate;
+                    audioElement.onended = function() {{
+                        currentIndex++;
+                        playCurrentChunk();
+                    }};
+                    audioElement.onerror = function(err) {{
+                        console.warn("Cloud TTS error, fallback to Web Speech API:", err);
+                        useCloudTTS = false;
+                        playViaWebSpeech(chunkText);
+                    }};
+                    const p = audioElement.play();
+                    if (p && p.catch) {{
+                        p.catch(function(e) {{
+                            console.warn("Autoplay blocked/failed, switching to Web Speech:", e);
+                            useCloudTTS = false;
+                            playViaWebSpeech(chunkText);
+                        }});
+                    }}
+                }} catch(e) {{
+                    useCloudTTS = false;
+                    playViaWebSpeech(chunkText);
+                }}
+            }} else {{
+                playViaWebSpeech(chunkText);
+            }}
+        }}
+
+        function playViaWebSpeech(chunkText) {{
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(chunkText);
+            u.lang = {is_english} ? 'en-US' : 'vi-VN';
+            u.rate = currentRate;
+            u.pitch = 1.0;
+            const v = getBestDeviceVoice();
+            if (v) u.voice = v;
+            u.onend = function() {{
+                currentIndex++;
+                playCurrentChunk();
+            }};
+            u.onerror = function() {{
+                currentIndex++;
+                playCurrentChunk();
+            }};
+            window.speechSynthesis.speak(u);
+        }}
+
+        window.pauseOrResumeAudio_{comp_key} = function() {{
+            if (!isPlaying) return;
+            if (!isPaused) {{
+                isPaused = true;
+                if (useCloudTTS) {{
+                    audioElement.pause();
+                }} else if (window.speechSynthesis) {{
+                    window.speechSynthesis.pause();
+                }}
+                if (btnPause) btnPause.innerText = "▶️ Tiếp tục";
+                updateStatus("Đã tạm dừng");
+            }} else {{
+                isPaused = false;
+                if (useCloudTTS) {{
+                    audioElement.play();
+                }} else if (window.speechSynthesis) {{
+                    window.speechSynthesis.resume();
+                }}
+                if (btnPause) btnPause.innerText = "⏸ Tạm dừng";
+                updateStatus("Đang đọc (" + (currentIndex + 1) + "/" + chunks.length + ")...");
+            }}
+        }};
+
+        window.stopPedagogicalAudio_{comp_key} = function() {{
+            isPlaying = false;
+            isPaused = false;
+            currentIndex = 0;
+            try {{ audioElement.pause(); audioElement.currentTime = 0; }} catch(e) {{}}
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            if (btnPause) btnPause.style.display = "none";
+            updateStatus("");
+        }};
+
+        window.changeRate_{comp_key} = function(val) {{
+            currentRate = parseFloat(val);
+            if (useCloudTTS) {{
+                audioElement.playbackRate = currentRate;
+            }}
+        }};
+
+        if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {{
+            window.speechSynthesis.onvoiceschanged = function() {{
+                getBestDeviceVoice();
+            }};
+        }}
+    }})();
     </script>
     """
-    components.html(tts_html, height=52)
+    components.html(tts_html, height=65)
 
 # ==============================================================================
 # BO CONG CU NHAN DIEN GIONG NOI SPEECH-TO-TEX & DANH GIA TIENG ANH CHUAN IELTS/TOEFL
