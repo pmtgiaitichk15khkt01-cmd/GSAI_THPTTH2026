@@ -2142,7 +2142,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
             # ==============================================================================
-            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (ÉP KHUNG CHỐNG RỚT DÒNG VÔ DUYÊN)
+            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (KHỚP 100% TỪNG MILIMET & MÃ ĐỀ 4 SỐ)
             # ==============================================================================
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
@@ -2160,9 +2160,11 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 
             school_lvl = "THCS" if grade_num <= 9 else "THPT"
             ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
-            ma_de_thi = random.randint(101, 999)
+            
+            # AI SINH MÃ ĐỀ NGẪU NHIÊN CHUẨN 4 CHỮ SỐ (VD: 0103, 1204...)
+            ma_de_thi = f"{random.randint(100, 9999):04d}"
 
-            # HEADER LATEX CHỦ ĐỘNG NGẮT DÒNG TẠO SỰ CÂN ĐỐI TUYỆT ĐỐI
+            # HEADER MÔ PHỎNG CHÍNH XÁC ĐỀ THI TỐT NGHIỆP THPT 2026
             latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
@@ -2186,41 +2188,42 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 \begin{document}
 
 \noindent
-\begin{minipage}[t]{0.45\textwidth}
-    \centering
-    \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO} \\
-    \textbf{AN GIANG} \\
-    \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\[0.2cm]
-    \textbf{ĐỀ THI CHÍNH THỨC} \\
-    \textit{(Đề thi có \pageref{LastPage} trang)}
+\begin{minipage}[t]{0.4\textwidth}
+    \begin{center}
+        SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG \\
+        \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\[0.1cm]
+        \textbf{ĐỀ THI CHÍNH THỨC} \\
+        \rule{3cm}{0.5pt} \\[0.1cm]
+        \textit{(Đề thi có \pageref{LastPage} trang)}
+    \end{center}
 \end{minipage}%
 \hfill
-\begin{minipage}[t]{0.5\textwidth}
-    \centering
-    \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG} \\
-    \textbf{NĂM 2026} \\
-    Bài thi: \textbf{""" + subject.upper() + r"""} \\
-    \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút}\\
-    \textit{(không kể thời gian phát đề)}
+\begin{minipage}[t]{0.58\textwidth}
+    \begin{center}
+        \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026} \\[0.1cm]
+        Môn thi: \textbf{""" + subject.upper() + r"""} \\[0.1cm]
+        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề}
+    \end{center}
 \end{minipage}
 
-\vspace{0.6cm}
+\vspace{0.3cm}
 \noindent
-\begin{minipage}[t]{0.65\textwidth}
+\begin{minipage}[b]{0.65\textwidth}
     \textbf{Họ, tên thí sinh:}\ \dotfill \\
     \textbf{Số báo danh:}\ \dotfill
 \end{minipage}%
 \hfill
-\begin{minipage}[t]{0.3\textwidth}
+\begin{minipage}[b]{0.3\textwidth}
     \raggedleft
-    \fbox{\makebox[3.5cm][c]{\textbf{Mã đề: """ + str(ma_de_thi) + r"""}}}
+    \fbox{\makebox[3cm]{\rule[-0.15cm]{0cm}{0.5cm} Mã đề: """ + str(ma_de_thi) + r"""}}
 \end{minipage}
 
-\vspace{0.4cm}
+\vspace{0.2cm}
+\noindent
 """
             if subject == "Ngữ văn":
                 dh = exam.get("part_doc_hieu", {})
-                latex_code += r"""\noindent\textbf{PHẦN I. ĐỌC HIỂU (4.0 điểm)}\vspace{0.15cm}
+                latex_code += r"""\textbf{PHẦN I. ĐỌC HIỂU (4.0 điểm)}\vspace{0.15cm}
 \begin{center}
 \fbox{\begin{minipage}{0.95\linewidth}
 \itshape """ + sanitize_latex(dh.get("text", "")) + r"""
@@ -2240,7 +2243,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
             else:
                 if exam.get("p1"):
                     p1_len = len(exam["p1"])
-                    latex_code += r"""\noindent\textbf{PHẦN I. Thí sinh trả lời từ câu 1 đến câu """ + str(p1_len) + r""". Mỗi câu hỏi thí sinh chỉ chọn một phương án.}\vspace{0.15cm}
+                    latex_code += r"""\textbf{PHẦN I.} Thí sinh trả lời từ câu 1 đến câu """ + str(p1_len) + r""". Mỗi câu hỏi thí sinh chỉ chọn một phương án.\vspace{0.15cm}
 \begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=4pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p1"]):
@@ -2248,7 +2251,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         latex_code += f"\\item {q_text}\n"
                         opts = [sanitize_latex(o) for o in q.get("opt", [])]
                         
-                        # AI TỰ ĐỘNG CÂN CỘT
+                        # AI TỰ ĐỘNG CÂN CỘT THÔNG MINH
                         max_opt_len = max([len(re.sub(r'\$.*?\$', '', opt)) for opt in opts]) if opts else 0
                         if max_opt_len < 15:
                             cols = 4  
@@ -2273,7 +2276,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                     
                 if exam.get("p2"):
                     p2_len = len(exam["p2"])
-                    latex_code += r"""\vspace{0.3cm}\noindent\textbf{PHẦN II. Thí sinh trả lời từ câu 1 đến câu """ + str(p2_len) + r""". Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.}\vspace{0.15cm}
+                    latex_code += r"""\vspace{0.3cm}\noindent\textbf{PHẦN II.} Thí sinh trả lời từ câu 1 đến câu """ + str(p2_len) + r""". Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.\vspace{0.15cm}
 \begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=4pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p2"]):
@@ -2286,7 +2289,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                     
                 if exam.get("p3"):
                     p3_len = len(exam["p3"])
-                    latex_code += r"""\vspace{0.3cm}\noindent\textbf{PHẦN III. Thí sinh trả lời từ câu 1 đến câu """ + str(p3_len) + r""".}\vspace{0.15cm}
+                    latex_code += r"""\vspace{0.3cm}\noindent\textbf{PHẦN III.} Thí sinh trả lời từ câu 1 đến câu """ + str(p3_len) + r""".\vspace{0.15cm}
 \begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=4pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p3"]):
