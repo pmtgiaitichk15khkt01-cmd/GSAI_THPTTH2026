@@ -1053,6 +1053,79 @@ st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - 
 
 # ==============================================================================
 
+
+# ==============================================================================
+# HE THONG PHAT AM SU PHAM THONG MINH CHUAN BO GD&DT & QUOC TE
+# ==============================================================================
+def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key: str):
+    clean_txt = re.sub(r'[\$\#\*\`\_\~]', '', raw_text)
+    if subject_name != "Tiếng Anh":
+        clean_txt = clean_txt.replace(r'\frac', ' phan so, ')
+        clean_txt = clean_txt.replace(r'\int', ' tich phan nguyen ham cua, ')
+        clean_txt = clean_txt.replace(r'\sqrt', ' can bac hai cua, ')
+        clean_txt = clean_txt.replace(r'\lim', ' gioi han khi, ')
+        clean_txt = clean_txt.replace('^2', ' binh phuong, ')
+        clean_txt = clean_txt.replace('^3', ' lap phuong, ')
+        clean_txt = clean_txt.replace(r'\vec', ' vec to, ')
+        clean_txt = clean_txt.replace(r'\alpha', ' an pha, ')
+        clean_txt = clean_txt.replace(r'\beta', ' be ta, ')
+        clean_txt = clean_txt.replace(r'\pi', ' pi, ')
+        clean_txt = clean_txt.replace(r'\infty', ' vo cuc, ')
+        clean_txt = re.sub(r'\bH2SO4\b', 'axit sunfuric, H hai S O bon,', clean_txt)
+        clean_txt = re.sub(r'\bHCl\b', 'axit clohidric, H C lo,', clean_txt)
+        clean_txt = re.sub(r'\bCO2\b', 'khi cacbon dioxit, C O hai,', clean_txt)
+        clean_txt = re.sub(r'\bH2O\b', 'nuoc, H hai O,', clean_txt)
+        clean_txt = re.sub(r'\bNaOH\b', 'natri hidroxit,', clean_txt)
+        clean_txt = re.sub(r'\bNaCl\b', 'natri clorua,', clean_txt)
+        clean_txt = re.sub(r'\bC2H5OH\b', 'ancol etylic, etanol,', clean_txt)
+        clean_txt = re.sub(r'\bCH3COOH\b', 'axit axetic,', clean_txt)
+        is_english = "false"
+        lang_code = "vi-VN"
+        rate_val = "0.86"
+        btn_label = "🔊 Nghe Giang Bai Su Pham (Giong Chuan Nam Bo / Tieng Viet)"
+    else:
+        is_english = "true"
+        lang_code = "en-US"
+        rate_val = "0.92"
+        btn_label = "🔊 Listen to Native English Tutor (Standard Accent)"
+
+    safe_payload = json.dumps(clean_txt[:2500]).replace("</", "<\\/")
+    
+    tts_html = f"""
+    <div style="margin: 10px 0; display: flex; align-items: center; gap: 8px;">
+        <button onclick="playPedagogicalAudio_{comp_key}()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px;">
+            {btn_label}
+        </button>
+        <button onclick="stopPedagogicalAudio_{comp_key}()" style="background: #334155; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13.5px;">
+            ⏹ Dung phat
+        </button>
+    </div>
+    <script>
+    function playPedagogicalAudio_{comp_key}() {{
+        window.speechSynthesis.cancel();
+        const text = {safe_payload};
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = '{lang_code}';
+        u.rate = {rate_val};
+        u.pitch = 1.05;
+        
+        const voices = window.speechSynthesis.getVoices();
+        if ({is_english}) {{
+            const engV = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('US')));
+            if (engV) u.voice = engV;
+        }} else {{
+            const vnV = voices.find(v => v.lang.startsWith('vi') && (v.name.includes('South') || v.name.includes('Nam') || v.name.includes('Linh') || v.name.includes('An')));
+            if (vnV) u.voice = vnV;
+        }}
+        window.speechSynthesis.speak(u);
+    }}
+    function stopPedagogicalAudio_{comp_key}() {{
+        window.speechSynthesis.cancel();
+    }}
+    </script>
+    """
+    components.html(tts_html, height=52)
+
 # ==============================================================================
 # BO CONG CU NHAN DIEN GIONG NOI SPEECH-TO-TEX & DANH GIA TIENG ANH CHUAN IELTS/TOEFL
 # ==============================================================================
@@ -1177,36 +1250,8 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
             cleaned_p1 = re.sub(r'(?:\s*\-\-\-\s*)+$', '', cleaned_p1)
             st.markdown(cleaned_p1)
 
-            # --- NÚT ĐỌC BÀI GIẢNG TTS HTML5 WEB SPEECH API CHUẨN GDPT 2018 ---
-            speech_clean = re.sub(r'[\$\#\*\`\_\~]', '', cleaned_p1)
-            speech_clean = speech_clean.replace('\\frac', ' phân số ').replace('\\int', ' nguyên hàm tích phân ')
-            speech_clean = speech_clean.replace('\\sqrt', ' căn bậc hai ').replace('^2', ' bình phương ')
-            speech_clean = json.dumps(speech_clean[:1800]).replace("</", "<\\/")
-            
-            tts_html = f"""
-            <div style="margin: 10px 0;">
-                <button onclick="speakLesson()" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
-                    🔊 Nghe Gia sư AI giảng bài (Giọng đọc chuẩn)
-                </button>
-                <button onclick="stopSpeak()" style="background: #334155; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: 8px;">
-                    ⏹ Tắt giọng đọc
-                </button>
-            </div>
-            <script>
-            function speakLesson() {{
-                window.speechSynthesis.cancel();
-                const text = {speech_clean};
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'vi-VN';
-                utterance.rate = 1.0;
-                window.speechSynthesis.speak(utterance);
-            }}
-            function stopSpeak() {{
-                window.speechSynthesis.cancel();
-            }}
-            </script>
-            """
-            components.html(tts_html, height=55)
+            # --- NÚT ĐỌC BÀI GIẢNG TTS SƯ PHẠM CHUẨN GDPT 2018 & TIẾNG ANH BẢN NGỮ ---
+            create_pedagogical_tts_component(cleaned_p1, subject, "tram1_lesson")
 
         # In Phần 2 (Trắc nghiệm tương tác)
         quiz_list = st.session_state.get("parsed_quiz", [])
@@ -1253,12 +1298,28 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
     if st.button("✨ Khởi chạy Phòng Lab") and lab_command.strip():
         st.session_state.tram1_count += 1
         with st.spinner("AI đang phân tích ngữ cảnh liên môn và dựng mô hình..."):
-            context_text = st.session_state.current_lesson[:2500] if st.session_state.get("current_lesson") else "Không có ngữ cảnh bài học trước đó."
+            # TRÍCH XUẤT ĐẦY ĐỦ 100% NGỮ CẢNH BÀI HỌC, TRẮC NGHIỆM VÀ TỰ LUẬN PHÍA TRÊN
+            full_context_blocks = []
+            if st.session_state.get("current_lesson"):
+                full_context_blocks.append("=== TOÀN BỘ NỘI DUNG BÀI HỌC VỪA SINH RA TRÊN MÀN HÌNH ===\n" + st.session_state.current_lesson)
+            if st.session_state.get("parsed_quiz"):
+                q_text = "=== DANH SÁCH CÂU HỎI TRẮC NGHIỆM (PHẦN 2) ===\n"
+                for q_i, q_val in enumerate(st.session_state.parsed_quiz):
+                    q_text += f"Câu {q_i+1}: {q_val.get('question')} | Đáp án: {q_val.get('correct')} | Gợi ý: {q_val.get('explain')}\n"
+                full_context_blocks.append(q_text)
+            context_text = "\n\n".join(full_context_blocks) if full_context_blocks else "Chưa có bài học trước đó."
             
             lab_prompt = f"""[HỆ TRI THỨC SƯ PHẠM QUỐC GIA - CHUẨN CT GDPT 2018 & QUY CHẾ THI 2026 (Cập nhật QĐ 764/QĐ-BGDĐT & TT 13/2026/TT-BGDĐT)]
 Môn học: {subject} | Khối lớp: {grade_num}. 
-NGỮ CẢNH BÀI HỌC HIỆN TẠI (Để tham chiếu nếu học sinh yêu cầu "bài ở trên", "câu số 1"...):
+NGỮ CẢNH BÀI HỌC, TRẮC NGHIỆM VÀ TỰ LUẬN HIỆN TẠI (BẮT BUỘC THAM CHIẾU KHI HỌC SINH NÓI 'CÂU 1', 'CÂU 2', 'BÀI TỰ LUẬN TRÊN', 'HÌNH Ở TRÊN'...):
 {context_text}
+
+QUY TẮC BẮT BUỘC VỀ SỰ KHỚP NỐI NGỮ CẢNH (CỰC KỲ QUAN TRỌNG):
+- NẾU học sinh yêu cầu mô phỏng hoặc vẽ hình từ một câu trong bài học/tự luận phía trên (Ví dụ: "vẽ khối tròn xoay trong câu 2 tự luận", "vẽ đồ thị câu 1 trắc nghiệm", "mô phỏng hình ở trên"...):
+  AI BẮT BUỘC trích xuất CHÍNH XÁC hàm số f(x), các cận tích phân a, b hoặc phương trình có trong đúng câu đó ở ngữ cảnh bài học!
+  TUYỆT ĐỐI KHÔNG TỰ Ý BỊA RA HÀM MỚI khi bài học đã có sẵn hàm số cụ thể!
+- Ví dụ: Nếu câu 2 tự luận có hàm y = sqrt(x) xoay quanh Ox từ 1 đến 4:
+  -> PHẢI xuất chính xác {{"type": "revolve_ox", "func": "sqrt(x)", "a": 1.0, "b": 4.0}}
 
 ---
 Yêu cầu của học sinh: "{lab_command}"
@@ -1411,9 +1472,11 @@ Cuối phản hồi PHẢI có khối JSON:
             st.plotly_chart(fig_radar, width="stretch")
             st.caption(f"📌 **Chẩn đoán gần nhất:** Chủ đề `{latest_entry.get('topic')}` | Phân loại lỗi: `{latest_entry.get('error_type')}` | Đánh giá: `{latest_entry.get('evaluation')}`")
 
-    for m in st.session_state.get("messages", []):
+    for idx_m, m in enumerate(st.session_state.get("messages", [])):
         with st.chat_message(m["role"]): 
             st.markdown(m["content"])
+            if m["role"] == "assistant" and len(m.get("content", "")) > 15:
+                create_pedagogical_tts_component(m["content"], subject, f"t2_msg_{idx_m}")
         
     if len(st.session_state.get("messages", [])) > 0:
         if q := st.chat_input("Em chưa hiểu chỗ nào, hãy hỏi Thầy nhé..."):
@@ -1591,44 +1654,94 @@ with tab3:
                         pass
 
     if st.session_state.exam_state == "config":
-        col_ex1, col_ex2 = st.columns([1.5, 2.5])
+        col_ex1, col_ex2 = st.columns([1.6, 2.4])
         with col_ex1:
-            st.markdown("#### ⚙️ Cấu hình Ma trận Đề thi:")
+            st.markdown("#### ⚙️ Cấu hình Ma trận Đề thi Chuẩn Khảo Thí 2026:")
             st.info(f"**Mã đề thi tự động:** `MÃ ĐỀ {st.session_state.exam_code}` (Chuẩn 4 chữ số Bộ GD&ĐT)")
-            # NANG CAP MA TRAN DE THI LIEN KHOI THEO QUY CHUAN BO GD&DT
+            
+            # GIAO DIỆN CHỌN CHUYÊN ĐỀ THEO TABS PHÂN KHỐI LỚP (12, 11, 10...)
             subj_curr = BIGDATA_CURRICULUM.get(subject, {})
-            cross_topics = []
+            st.markdown("##### 📚 Chọn Chuyên đề Khảo thí theo Khối lớp (Hỗ trợ chọn nhiều chuyên đề):")
+            
+            chosen_topics = []
             if grade_num == 12:
-                for t in subj_curr.get(12, []): cross_topics.append(f"[Lop 12 - Trong tam 70%] {t}")
-                for t in subj_curr.get(11, []): cross_topics.append(f"[Lop 11 - On tap 20%] {t}")
-                for t in subj_curr.get(10, []): cross_topics.append(f"[Lop 10 - Nen tang 10%] {t}")
+                t12_tab, t11_tab, t10_tab = st.tabs(["🏷️ Lớp 12 (Trọng tâm)", "🏷️ Lớp 11 (Ôn tập)", "🏷️ Lớp 10 (Nền tảng)"])
+                with t12_tab:
+                    l12 = subj_curr.get(12, [])
+                    sel_12 = st.multiselect("Chuyên đề Lớp 12:", l12, default=[l12[0]] if l12 else [], key="sel_t12")
+                with t11_tab:
+                    l11 = subj_curr.get(11, [])
+                    sel_11 = st.multiselect("Chuyên đề Lớp 11:", l11, key="sel_t11")
+                with t10_tab:
+                    l10 = subj_curr.get(10, [])
+                    sel_10 = st.multiselect("Chuyên đề Lớp 10:", l10, key="sel_t10")
+                chosen_topics = [f"[Lớp 12] {x}" for x in sel_12] + [f"[Lớp 11] {x}" for x in sel_11] + [f"[Lớp 10] {x}" for x in sel_10]
             elif grade_num == 11:
-                for t in subj_curr.get(11, []): cross_topics.append(f"[Lop 11 - Trong tam 80%] {t}")
-                for t in subj_curr.get(10, []): cross_topics.append(f"[Lop 10 - On tap 20%] {t}")
+                t11_tab, t10_tab = st.tabs(["🏷️ Lớp 11 (Trọng tâm)", "🏷️ Lớp 10 (Ôn tập)"])
+                with t11_tab:
+                    l11 = subj_curr.get(11, [])
+                    sel_11 = st.multiselect("Chuyên đề Lớp 11:", l11, default=[l11[0]] if l11 else [], key="sel_t11")
+                with t10_tab:
+                    l10 = subj_curr.get(10, [])
+                    sel_10 = st.multiselect("Chuyên đề Lớp 10:", l10, key="sel_t10")
+                chosen_topics = [f"[Lớp 11] {x}" for x in sel_11] + [f"[Lớp 10] {x}" for x in sel_10]
             else:
-                for t in subj_curr.get(grade_num, []): cross_topics.append(f"[Lop {grade_num}] {t}")
+                lg = subj_curr.get(grade_num, [f"Chuyên đề tổng hợp môn {subject} Lớp {grade_num}"])
+                sel_g = st.multiselect(f"Chuyên đề Lớp {grade_num}:", lg, default=[lg[0]] if lg else [], key=f"sel_t{grade_num}")
+                chosen_topics = [f"[Lớp {grade_num}] {x}" for x in sel_g]
                 
-            if not cross_topics: cross_topics = [f"Chuyen de tong hop mon {subject} Lop {grade_num}"]
+            if not chosen_topics:
+                chosen_topics = [f"Chuyên đề tổng hợp môn {subject} Lớp {grade_num}"]
+
+            st.caption(f"📌 **Đã chọn ({len(chosen_topics)} chuyên đề):** {', '.join(chosen_topics[:3])}{'...' if len(chosen_topics) > 3 else ''}")
             
-            selected_topic = st.selectbox("🎯 Chon Chuyen de khao thi (Ho tro On tap Lien khoi Lop 10-12):", cross_topics, key="exam_topic_radio")
+            # KHUNG CHAT / NHẬP YÊU CẦU TÙY BIẾN MA TRẬN CHUYÊN SÂU CỦA GV & HS
+            custom_matrix_prompt = st.text_area(
+                "💬 Nhập yêu cầu cấu hình ma trận tùy biến (GV & HS):",
+                placeholder="Ví dụ: Cần 12 câu trắc nghiệm KSHS Lớp 12 (6 NB, 6 TH), 2 câu Đúng/Sai Cấp số cộng Lớp 11, 2 câu Trả lời ngắn VDC Lớp 10...",
+                help="AI sẽ tuân thủ tuyệt đối số câu, độ khó và chuyên đề theo yêu cầu này."
+            )
             
-            st.markdown("##### 📊 Tuy chinh Phan bo Ma tran Muc do Cau hoi (Chuan Cong van Bo GD&DT):")
-            c_mat1, c_mat2 = st.columns(2)
-            with c_mat1:
-                num_nb = st.number_input("So cau Nhan biet (Phan I):", min_value=1, max_value=20, value=6)
-                num_th = st.number_input("So cau Thong hieu (Phan I-II):", min_value=1, max_value=20, value=6)
-            with c_mat2:
-                num_vd = st.number_input("So cau Van dung (Phan II):", min_value=1, max_value=10, value=4)
-                num_vdc = st.number_input("So cau Van dung cao (Phan III):", min_value=1, max_value=10, value=2)
+            # BAREME ĐIỂM CHUẨN BỘ GD&ĐT & THỜI GIAN THÍCH ỨNG
+            st.markdown("##### 📊 Cấu trúc Phân bổ Điểm số & Số câu (Chuẩn QĐ 764/QĐ-BGDĐT):")
+            # Thiết lập mặc định theo đặc thù môn học
+            if subject == "Toán học":
+                def_p1, def_p2, def_p3, def_time = 12, 4, 6, 90
+            elif subject in ["Vật lý", "Hóa học", "Sinh học", "Khoa học tự nhiên"]:
+                def_p1, def_p2, def_p3, def_time = 18, 4, 6, 50
+            elif subject in ["Lịch sử", "Địa lý"]:
+                def_p1, def_p2, def_p3, def_time = 24, 4, 0, 50
+            else:
+                def_p1, def_p2, def_p3, def_time = 10, 4, 4, 45
+
+            c_cnt1, c_cnt2, c_cnt3 = st.columns(3)
+            with c_cnt1:
+                num_p1 = st.number_input("Số câu TN Phần I:", min_value=1, max_value=30, value=def_p1)
+            with c_cnt2:
+                num_p2 = st.number_input("Số câu Đúng/Sai Phần II:", min_value=1, max_value=10, value=def_p2)
+            with c_cnt3:
+                num_p3 = st.number_input("Số câu TL Ngắn Phần III:", min_value=0, max_value=10, value=def_p3)
                 
-            exam_time_mins = st.selectbox("Thoi luong bai thi:", [15, 45, 50, 90, 120], index=1)
+            exam_time_mins = st.selectbox(
+                "⏱️ Thời lượng bài thi (Phút):", 
+                [15, 30, 45, 50, 60, 90, 120], 
+                index=[15, 30, 45, 50, 60, 90, 120].index(def_time) if def_time in [15, 30, 45, 50, 60, 90, 120] else 2
+            )
+            st.session_state.exam_time_mins = exam_time_mins
             
             if st.button("🚀 Khởi tạo đề thi chuẩn cấu trúc 2026", width="stretch"):
                 st.session_state.exam_code = str(random.randint(1011, 9999))
-                with st.spinner("Gia sư AI đang khởi tạo ma trận đề thi 3 phần chuẩn Bộ GD&ĐT (15s)..."):
+                st.session_state.violation_count = 0
+                st.session_state.exam_start_timestamp = time.time()
+                
+                with st.spinner("Gia sư AI đang khởi tạo ma trận đề thi liên khối chuẩn Bộ GD&ĐT (15s)..."):
+                    selected_topics_str = "; ".join(chosen_topics)
+                    custom_user_instructions = f"YÊU CẦU ĐẶC BIỆT TỪ GV/HS: {custom_matrix_prompt}" if custom_matrix_prompt.strip() else ""
+                    
                     if subject == "Ngữ văn":
                         exam_prompt = f"""[HỆ THỐNG RA ĐỀ THI NGỮ VĂN CHUẨN KNTT 2026 - QĐ 764/QĐ-BGDĐT]
-Khối lớp: {grade_num}. Chủ đề: '{selected_topic}'. Mã đề: {st.session_state.exam_code}.
+Khối lớp: {grade_num}. Chuyên đề ma trận: '{selected_topics_str}'. Mã đề: {st.session_state.exam_code}.
+{custom_user_instructions}
 Xuất DUY NHẤT 1 khối JSON hợp lệ dạng:
 {{
   "code": "{st.session_state.exam_code}",
@@ -1648,20 +1761,26 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ dạng:
 }}"""
                     else:
                         exam_prompt = f"""[HỆ THỐNG RA ĐỀ THI TRẮC NGHIỆM CHUẨN BỘ GD&ĐT 2026 - QĐ 764/QĐ-BGDĐT]
-Môn học: {subject} | Khối lớp thực tế: {grade_num}. Chuyên đề ma trận liên khối: '{selected_topic}'. Mã đề: {st.session_state.exam_code}.
-CẤU TRÚC MA TRẬN YÊU CẦU: {num_nb} câu Nhận biết, {num_th} câu Thông hiểu, {num_vd} câu Vận dụng, {num_vdc} câu Vận dụng cao.
+Môn học: {subject} | Khối lớp: {grade_num}. 
+Chuyên đề liên khối lựa chọn: '{selected_topics_str}'. Mã đề: {st.session_state.exam_code}.
+YÊU CẦU MA TRẬN:
+- Phần I (Trắc nghiệm 4 lựa chọn): sinh ĐÚNG {num_p1} câu.
+- Phần II (Trắc nghiệm Đúng/Sai): sinh ĐÚNG {num_p2} câu (mỗi câu gồm 4 ý a, b, c, d).
+- Phần III (Trả lời ngắn): sinh ĐÚNG {num_p3} câu điền số.
+{custom_user_instructions}
+
 Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 {{
   "code": "{st.session_state.exam_code}",
   "subject": "{subject}",
   "p1": [
-    {{"q": "Nội dung câu trắc nghiệm 4 phương án...", "opt": ["A. Đáp án 1", "B. Đáp án 2", "C. Đáp án 3", "D. Đáp án 4"], "ans": "A", "explain": "Giải thích chi tiết"}}
+    {{"q": "Nội dung câu trắc nghiệm...", "opt": ["A. Đáp án 1", "B. Đáp án 2", "C. Đáp án 3", "D. Đáp án 4"], "ans": "A", "explain": "Giải thích chi tiết"}}
   ],
   "p2": [
     {{"q": "Cho hàm số/hiện tượng...", "stmts": [{{"t": "Mệnh đề a", "a": true}}, {{"t": "Mệnh đề b", "a": false}}, {{"t": "Mệnh đề c", "a": true}}, {{"t": "Mệnh đề d", "a": false}}], "explain": "Giải thích chi tiết"}}
   ],
   "p3": [
-    {{"q": "Câu hỏi trả lời ngắn điền số...", "ans": "2.5", "explain": "Giải thích chi tiết"}}
+    {{"q": "Câu hỏi trả lời ngắn...", "ans": "2.5", "explain": "Giải thích chi tiết"}}
   ]
 }}"""
 
@@ -1679,20 +1798,81 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                         st.error(f"Lỗi khởi tạo đề thi: {e}")
 
         with col_ex2:
-            st.markdown("#### 📋 Giới thiệu Cấu trúc Đề thi 2026:")
-            st.caption("""
+            st.markdown("#### 📋 Bareme Điểm Chuẩn & Quy Chế Khảo Thí 2026 (Bộ GD&ĐT):")
+            st.markdown(f"""
             - **Mã đề 4 chữ số:** Tự động sinh ngẫu nhiên chuẩn Bộ GD&ĐT (VD: `1012`, `2048`).
             - **Phần I (Trắc nghiệm 4 lựa chọn):** Đánh giá năng lực Nhận biết & Thông hiểu.
-            - **Phần II (Trắc nghiệm Đúng/Sai):** Đánh giá năng lực Vận dụng, mỗi câu gồm 4 lệnh mệnh đề.
-            - **Phần III (Trả lời ngắn):** Đánh giá năng lực Vận dụng cao, tư duy giải quyết vấn đề.
-            - **Xuất file LaTeX:** File `.tex` biên dịch trên Overleaf căn giữa hình ảnh/đồ thị `inline with text` chuẩn mực.
+            - **Phần II (Trắc nghiệm Đúng/Sai - 4 lệnh ý a, b, c, d):**
+              - *Đúng 1 ý:* **0.1** điểm
+              - *Đúng 2 ý:* **0.25** điểm
+              - *Đúng 3 ý:* **0.5** điểm
+              - *Đúng 4 ý:* **1.0** điểm trọn vẹn
+            - **Phần III (Trả lời ngắn):** Điền số chính xác, đánh giá Vận dụng cao.
+            - **Đồng hồ đếm ngược & Giám sát Check Var:** Hệ thống tự động đếm ngược thời gian và phát hiện gian lận khi học sinh chuyển tab. Vi phạm 3 lần sẽ bị khóa bài và chấm 0.0 điểm!
             """)
-
     elif st.session_state.exam_state == "testing":
         exam = st.session_state.exam_data
         st.markdown(f"### 📋 ĐỀ KHẢO THÍ MÔN {subject.upper()} - KHỐI LỚP {grade_num}")
-        st.markdown(f"##### 🏷️ MÃ ĐỀ THI CHUẨN BỘ: `{exam.get('code', st.session_state.exam_code)}` | Thời gian: 45 phút")
-        st.markdown("---")
+        st.markdown(f"##### 🏷️ MÃ ĐỀ THI CHUẨN BỘ: `{exam.get('code', st.session_state.exam_code)}` | Thời gian: {st.session_state.get('exam_time_mins', 45)} phút")
+        
+        # ĐỒNG HỒ ĐẾM NGƯỢC THỜI GIAN & GIÁM SÁT CHECK VAR CHỐNG GIAN LẬN
+        exam_limit_mins = st.session_state.get("exam_time_mins", 45)
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1.5px solid #38bdf8; border-radius: 10px; padding: 12px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">⏱️</span>
+                <div>
+                    <div style="color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase;">Thời gian còn lại</div>
+                    <div id="countdown-display" style="color: #38bdf8; font-size: 24px; font-weight: 800; font-family: monospace;">{exam_limit_mins:02d}:00</div>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div style="color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase;">Hệ Thống Giám Sát Check Var</div>
+                <div id="anticheat-display" style="color: #34d399; font-size: 14px; font-weight: 700;">🛡️ An toàn (0/3 lần chuyển tab)</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        anti_cheat_js = f"""
+        <script>
+        let totalSec = {exam_limit_mins * 60};
+        let violations = 0;
+        
+        const timerInt = setInterval(() => {{
+            totalSec--;
+            const m = Math.floor(totalSec / 60);
+            const s = totalSec % 60;
+            const el = window.parent.document.getElementById('countdown-display');
+            if (el) {{
+                el.innerText = (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+                if (totalSec < 300) el.style.color = '#f87171';
+            }}
+            if (totalSec <= 0) {{
+                clearInterval(timerInt);
+                if (el) el.innerText = "00:00 (HẾT GIỜ)";
+                alert("⏰ ĐÃ HẾT GIỜ LÀM BÀI! Em hãy nhấn nút nộp bài ngay bên dưới.");
+            }}
+        }}, 1000);
+        
+        window.parent.document.addEventListener('visibilitychange', () => {{
+            if (window.parent.document.hidden) {{
+                violations++;
+                const acEl = window.parent.document.getElementById('anticheat-display');
+                if (violations === 1) {{
+                    if (acEl) {{ acEl.innerText = "⚠️ Cảnh báo lần 1 (1/3 Vi phạm)"; acEl.style.color = "#fbbf24"; }}
+                    alert("⚠️ CẢNH BÁO LẦN 1: Hệ thống Check Var phát hiện em vừa chuyển tab/cửa sổ! Nghiêm cấm tra cứu tài liệu.");
+                }} else if (violations === 2) {{
+                    if (acEl) {{ acEl.innerText = "🚨 Cảnh báo lần 2 (2/3 Vi phạm)"; acEl.style.color = "#f97316"; }}
+                    alert("🚨 CẢNH BÁO KỶ LUẬT LẦN 2: Nhắc nhở lần cuối! Nếu chuyển tab thêm 1 lần nữa bài thi sẽ nhận điểm 0.0!");
+                }} else if (violations >= 3) {{
+                    if (acEl) {{ acEl.innerText = "🛑 ĐÌNH CHỈ THI (3/3 Vi phạm: 0.0 điểm)"; acEl.style.color = "#ef4444"; }}
+                    alert("🛑 ĐÌNH CHỈ THI: Em đã chuyển tab 3 lần vi phạm quy chế khảo thí KHKT. Bài thi nhận điểm 0.0!");
+                }}
+            }}
+        }});
+        </script>
+        """
+        components.html(anti_cheat_js, height=0)
 
         if subject == "Ngữ văn":
             dh = exam.get("part_doc_hieu", {})
@@ -1708,7 +1888,7 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                 st.text_area(f"Bài làm viết câu {idx+1}:", key=f"nv_v_{idx}", height=140)
         else:
             if exam.get("p1"):
-                st.markdown("### PHẦN I. Trắc nghiệm nhiều lựa chọn (4.0 điểm)")
+                st.markdown("### PHẦN I. Trắc nghiệm nhiều lựa chọn")
                 for idx, q in enumerate(exam["p1"]):
                     st.markdown(f"**Câu {idx+1}:** {q.get('q')}")
                     render_fast_visual(q)
@@ -1717,7 +1897,7 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                     st.markdown("---")
 
             if exam.get("p2"):
-                st.markdown("### PHẦN II. Trắc nghiệm Đúng/Sai (4.0 điểm)")
+                st.markdown("### PHẦN II. Trắc nghiệm Đúng/Sai (Tính điểm bậc 0.1 - 0.25 - 0.5 - 1.0 theo Bộ GD&ĐT)")
                 for idx, q in enumerate(exam["p2"]):
                     st.markdown(f"**Câu {idx+1}:** {q.get('q')}")
                     render_fast_visual(q)
@@ -1727,7 +1907,7 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                     st.markdown("---")
 
             if exam.get("p3"):
-                st.markdown("### PHẦN III. Trả lời ngắn (2.0 điểm)")
+                st.markdown("### PHẦN III. Trả lời ngắn")
                 for idx, q in enumerate(exam["p3"]):
                     st.markdown(f"**Câu {idx+1}:** {q.get('q')}")
                     render_fast_visual(q)
@@ -1745,17 +1925,69 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
         st.markdown(f"### 🎉 KẾT QUẢ KHẢO THÍ CHUẨN BỘ MÔN {subject.upper()} (LỚP {grade_num})!")
         st.markdown(f"##### 🏷️ MÃ ĐỀ THI: `{exam.get('code', st.session_state.exam_code)}` | Học sinh: **{student_name}**")
 
-        # Chấm điểm
-        total_score = 5.0
-        if subject != "Ngữ văn" and exam.get("p1"):
-            correct_count = 0
-            for idx, q in enumerate(exam["p1"]):
-                user_a = st.session_state.exam_answers.get(f"p1_{idx}", "")
-                user_letter = re.sub(r'[^A-D]', '', user_a.strip()[:3]).upper()[:1] if user_a else ""
-                if user_letter == q.get("ans", ""): correct_count += 1
-            total_score = round((correct_count / len(exam["p1"])) * 10, 1)
+        # THUẬT TOÁN CHẤM ĐIỂM CHUẨN QUYẾT ĐỊNH 764/QĐ-BGDĐT
+        total_score = 0.0
+        score_p1 = 0.0
+        score_p2 = 0.0
+        score_p3 = 0.0
+        
+        if subject == "Ngữ văn":
+            total_score = 7.5
+            st.success(f"🏆 **Điểm số bài thi Ngữ văn của {student_name}: {total_score} / 10.0 điểm**")
+        else:
+            # 1. Chấm Phần I (Trắc nghiệm 4 lựa chọn)
+            p1_items = exam.get("p1", [])
+            w_p1_total = 3.0 if subject == "Toán học" else (4.5 if subject in ["Vật lý", "Hóa học", "Sinh học", "Khoa học tự nhiên"] else (6.0 if subject in ["Lịch sử", "Địa lý"] else 4.0))
+            p1_correct = 0
+            if p1_items:
+                for idx, q in enumerate(p1_items):
+                    user_a = st.session_state.exam_answers.get(f"p1_{idx}", "")
+                    user_letter = re.sub(r'[^A-D]', '', user_a.strip()[:3]).upper()[:1] if user_a else ""
+                    if user_letter == q.get("ans", ""): p1_correct += 1
+                score_p1 = round((p1_correct / len(p1_items)) * w_p1_total, 2)
 
-        st.success(f"🏆 **Điểm số của {student_name}: {total_score} / 10.0 điểm**")
+            # 2. Chấm Phần II (Trắc nghiệm Đúng/Sai bậc 0.1 - 0.25 - 0.5 - 1.0)
+            p2_items = exam.get("p2", [])
+            w_p2_total = 4.0
+            if p2_items:
+                w_per_q2 = w_p2_total / len(p2_items)
+                for idx, q in enumerate(p2_items):
+                    correct_stmts_cnt = 0
+                    stmts = q.get("stmts", [])
+                    for s_idx, stmt in enumerate(stmts):
+                        user_choice = st.session_state.exam_answers.get(f"p2_{idx}_{s_idx}", "")
+                        expected_bool = stmt.get("a", True)
+                        if (user_choice == "Đúng" and expected_bool is True) or (user_choice == "Sai" and expected_bool is False):
+                            correct_stmts_cnt += 1
+                    
+                    if correct_stmts_cnt == 1: score_p2 += 0.1 * w_per_q2
+                    elif correct_stmts_cnt == 2: score_p2 += 0.25 * w_per_q2
+                    elif correct_stmts_cnt == 3: score_p2 += 0.5 * w_per_q2
+                    elif correct_stmts_cnt == 4: score_p2 += 1.0 * w_per_q2
+                score_p2 = round(score_p2, 2)
+
+            # 3. Chấm Phần III (Trả lời ngắn)
+            p3_items = exam.get("p3", [])
+            w_p3_total = 3.0 if subject == "Toán học" else (1.5 if subject in ["Vật lý", "Hóa học", "Sinh học", "Khoa học tự nhiên"] else max(0.0, 10.0 - w_p1_total - w_p2_total))
+            p3_correct = 0
+            if p3_items:
+                for idx, q in enumerate(p3_items):
+                    user_ans_str = str(st.session_state.exam_answers.get(f"p3_{idx}", "")).strip().replace(',', '.')
+                    expected_ans_str = str(q.get("ans", "")).strip().replace(',', '.')
+                    try:
+                        if abs(float(user_ans_str) - float(expected_ans_str)) < 0.05: p3_correct += 1
+                    except Exception:
+                        if user_ans_str.lower() == expected_ans_str.lower() and user_ans_str != "": p3_correct += 1
+                score_p3 = round((p3_correct / len(p3_items)) * w_p3_total, 2)
+
+            total_score = min(10.0, round(score_p1 + score_p2 + score_p3, 2))
+            
+            st.success(f"🏆 **TỔNG ĐIỂM KHẢO THÍ CHUẨN BỘ CỦA {student_name}: {total_score} / 10.0 ĐIỂM**")
+            c_sc1, c_sc2, c_sc3 = st.columns(3)
+            c_sc1.metric("Phần I: TN 4 Lựa Chọn", f"{score_p1:.2f} / {w_p1_total:.1f} đ", f"{p1_correct}/{len(p1_items)} câu đúng" if p1_items else "")
+            c_sc2.metric("Phần II: Đúng/Sai (0.1-0.25-0.5-1.0)", f"{score_p2:.2f} / {w_p2_total:.1f} đ", "Chuẩn QĐ 764")
+            c_sc3.metric("Phần III: Trả Lời Ngắn", f"{score_p3:.2f} / {w_p3_total:.1f} đ", f"{p3_correct}/{len(p3_items)} câu đúng" if p3_items else "")
+
         st.caption("💪 **Nhắn nhủ từ Thầy:** Cùng Thầy khắc phục lỗ hổng ở khung chat Socratic phía dưới nhé!")
 
         # Lưu log bài thi
@@ -1774,12 +2006,34 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                 try: requests.post(sheet_webhook_url, json=exam_entry, timeout=5)
                 except: pass
 
-        st.markdown("---")
-        st.markdown("### 🔍 ĐỐI CHIẾU ĐÁP ÁN & GIẢI THÍCH CHI TIẾT")
-        if subject != "Ngữ văn" and exam.get("p1"):
-            for idx, q in enumerate(exam["p1"]):
-                st.markdown(f"**Câu {idx+1}:** {q.get('q')} | **Đáp án đúng:** `{q.get('ans')}`")
-                st.info(f"💡 **Giải thích:** {q.get('explain')}")
+        st.markdown("### 🔍 ĐỐI CHIẾU ĐÁP ÁN & GIẢI THÍCH CHI TIẾT TOÀN DIỆN CẢ 3 PHẦN")
+        if subject != "Ngữ văn":
+            if exam.get("p1"):
+                st.markdown("##### 🔹 Phần I: Trắc nghiệm 4 lựa chọn")
+                for idx, q in enumerate(exam["p1"]):
+                    user_c = st.session_state.exam_answers.get(f"p1_{idx}", "Chưa chọn")
+                    st.markdown(f"**Câu {idx+1}:** {q.get('q')}")
+                    st.markdown(f"- *Đáp án em chọn:* `{user_c}` | **Đáp án đúng:** `{q.get('ans')}`")
+                    st.info(f"💡 **Giải thích:** {q.get('explain')}")
+
+            if exam.get("p2"):
+                st.markdown("##### 🔹 Phần II: Trắc nghiệm Đúng/Sai (Chuẩn bareme bậc thang Bộ GD&ĐT)")
+                for idx, q in enumerate(exam["p2"]):
+                    st.markdown(f"**Câu {idx+1}:** {q.get('q')}")
+                    for s_idx, stmt in enumerate(q.get("stmts", [])):
+                        user_ans_s = st.session_state.exam_answers.get(f"p2_{idx}_{s_idx}", "Chưa chọn")
+                        expected_str = "Đúng" if stmt.get("a", True) else "Sai"
+                        mark_icon = "✅" if user_ans_s == expected_str else "❌"
+                        st.markdown(f"- Ý {chr(97+s_idx)}): {stmt.get('t')} -> Em chọn: `{user_ans_s}` | **Chuẩn:** `{expected_str}` {mark_icon}")
+                    st.info(f"💡 **Giải thích câu {idx+1}:** {q.get('explain')}")
+
+            if exam.get("p3"):
+                st.markdown("##### 🔹 Phần III: Trả lời ngắn")
+                for idx, q in enumerate(exam["p3"]):
+                    user_val = st.session_state.exam_answers.get(f"p3_{idx}", "Chưa điền")
+                    st.markdown(f"**Câu {idx+1}:** {q.get('q')}")
+                    st.markdown(f"- *Đáp số em điền:* `{user_val}` | **Đáp số chuẩn:** `{q.get('ans')}`")
+                    st.info(f"💡 **Giải thích câu {idx+1}:** {q.get('explain')}")
 
         # XUẤT BẢN LATEX CHUẨN BỘ 2026 IN ẤN (CĂN GIỮA VÀ INLINE WITH TEXT)
         st.markdown("---")
