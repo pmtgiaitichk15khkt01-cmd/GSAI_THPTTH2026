@@ -2142,7 +2142,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
             # ==============================================================================
-            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (TỰ ĐỘNG CHIA CỘT & SIÊU TIẾT KIỆM GIẤY)
+            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (FORM HEADER CHUẨN & TỰ ĐỘNG CHIA CỘT)
             # ==============================================================================
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
@@ -2162,7 +2162,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
             ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
             ma_de_thi = random.randint(101, 999)
 
-            # HEADER LATEX TỐI ƯU CỰC KỲ TIẾT KIỆM GIẤY (LỀ 1.5CM)
+            # HEADER LATEX CHUẨN BỘ GD&ĐT (TABULAR CHỐNG RỚT DÒNG + ĐÓNG KHUNG MÃ ĐỀ)
             latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
@@ -2187,35 +2187,28 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 \begin{document}
 
 \noindent
-\begin{minipage}[t]{0.45\textwidth}
-\begin{center}
-\textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG}\\
-\textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP}\\
-\noindent\rule{4cm}{0.8pt}
-\end{center}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.5\textwidth}
-\begin{center}
-\textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026}\\
-\textbf{Bài thi: """ + subject.upper() + r"""}\\
-\textit{Thời gian làm bài: """ + str(ex_time) + r""" phút}\\
-\textit{(không kể thời gian phát đề)}
-\end{center}
-\end{minipage}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} c c }
+    \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO} & \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026} \\
+    \textbf{AN GIANG} & \textbf{Bài thi: """ + subject.upper() + r"""} \\
+    \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} & \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút} \\
+    \rule{4cm}{0.8pt} & \textit{(không kể thời gian phát đề)} \\
+\end{tabular*}
 
-\vspace{0.2cm}
+\vspace{0.4cm}
 \noindent
-\begin{minipage}[t]{0.6\textwidth}
-\textbf{Họ, tên thí sinh:} \dotfill\\
-\textbf{Số báo danh:} \dotfill
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.35\textwidth}
-\begin{flushright}
-\textbf{MÃ ĐỀ THI: """ + str(ma_de_thi) + r"""}
-\end{flushright}
-\end{minipage}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}} l r }
+    \begin{tabular}[t]{@{}l@{}}
+        \textbf{Họ, tên thí sinh:} \makebox[7cm]{\dotfill} \\
+        \textbf{Số báo danh:} \makebox[7cm]{\dotfill}
+    \end{tabular}
+    & 
+    \fbox{
+        \begin{tabular}{c}
+            \textbf{MÃ ĐỀ THI} \\
+            \textbf{\Large """ + str(ma_de_thi) + r"""}
+        \end{tabular}
+    } \\
+\end{tabular*}
 
 \vspace{0.3cm}
 \begin{center}
@@ -2297,7 +2290,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 \begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=2pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p3"]):
-                        latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
+                        latex_code += f"\\item {sanitize_latex(q.get('q', ''))} \\hfill \\framebox[2.5cm]{{\\rule{{0pt}}{{1.8ex}}Đáp số:}}\n"
                     latex_code += r"""\end{enumerate}"""
 
             if "kèm Bảng đáp án" in latex_mode and exam.get("p1"):
