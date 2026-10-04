@@ -2142,7 +2142,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
             # ==============================================================================
-            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (KHỚP 100% TỪNG MILIMET & MÃ ĐỀ 4 SỐ)
+            # 5. XUẤT BẢN LATEX CHUẨN MỰC TỐI THƯỢNG (ĐỦ SỞ, TRƯỜNG, ĐƯỜNG KẺ & MÃ ĐỀ 4 SỐ)
             # ==============================================================================
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
@@ -2160,11 +2160,9 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 
             school_lvl = "THCS" if grade_num <= 9 else "THPT"
             ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
-            
-            # AI SINH MÃ ĐỀ NGẪU NHIÊN CHUẨN 4 CHỮ SỐ (VD: 0103, 1204...)
             ma_de_thi = f"{random.randint(100, 9999):04d}"
 
-            # HEADER MÔ PHỎNG CHÍNH XÁC ĐỀ THI TỐT NGHIỆP THPT 2026
+            # HEADER HOÀN HẢO: ĐỦ SỞ, TRƯỜNG, ĐƯỜNG KẺ NGANG & MÃ ĐỀ 4 SỐ
             latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
@@ -2188,23 +2186,26 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 \begin{document}
 
 \noindent
-\begin{minipage}[t]{0.4\textwidth}
+\begin{minipage}[t]{0.45\textwidth}
     \begin{center}
-        SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG \\
+        \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG} \\
         \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\[0.1cm]
         \textbf{ĐỀ THI CHÍNH THỨC} \\
-        \rule{3cm}{0.5pt} \\[0.1cm]
         \textit{(Đề thi có \pageref{LastPage} trang)}
     \end{center}
 \end{minipage}%
 \hfill
-\begin{minipage}[t]{0.58\textwidth}
+\begin{minipage}[t]{0.52\textwidth}
     \begin{center}
         \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026} \\[0.1cm]
         Môn thi: \textbf{""" + subject.upper() + r"""} \\[0.1cm]
         \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề}
     \end{center}
 \end{minipage}
+
+\vspace{0.1cm}
+\noindent
+\rule{\textwidth}{0.5pt}
 
 \vspace{0.3cm}
 \noindent
@@ -2218,7 +2219,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
     \fbox{\makebox[3cm]{\rule[-0.15cm]{0cm}{0.5cm} Mã đề: """ + str(ma_de_thi) + r"""}}
 \end{minipage}
 
-\vspace{0.2cm}
+\vspace{0.3cm}
 \noindent
 """
             if subject == "Ngữ văn":
@@ -2251,7 +2252,6 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         latex_code += f"\\item {q_text}\n"
                         opts = [sanitize_latex(o) for o in q.get("opt", [])]
                         
-                        # AI TỰ ĐỘNG CÂN CỘT THÔNG MINH
                         max_opt_len = max([len(re.sub(r'\$.*?\$', '', opt)) for opt in opts]) if opts else 0
                         if max_opt_len < 15:
                             cols = 4  
