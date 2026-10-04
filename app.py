@@ -47,7 +47,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-APP_URL = "https://giasuaithiennhanedu-r5bwggdappdvrmtne2wv3dw.streamlit.app"
+APP_URL = "https://gsaithptth-khkt2026.streamlit.app/"
 
 # ==============================================================================
 # TÂN TRANG GIAO DIỆN (UI/UX NÂNG CẤP DÀNH CHO KHKT)
