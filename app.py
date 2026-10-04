@@ -64,7 +64,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-APP_URL = get_secret("APP_URL", "https://github.com/pmtgiaitichk15khkt01-cmd/GSAI_THPTTH2026")
+APP_URL = get_secret("APP_URL", "https://gsaithptth-khkt2026.streamlit.app")
 
 # ==============================================================================
 # TÂN TRANG GIAO DIỆN (UI/UX NÂNG CẤP DÀNH CHO KHKT)
