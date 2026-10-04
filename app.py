@@ -1592,6 +1592,31 @@ with tab3:
     if "tram3_chat_messages" not in st.session_state: st.session_state.tram3_chat_messages = []
     if "exam_code" not in st.session_state: st.session_state.exam_code = str(random.randint(1011, 9999))
 
+def clean_vietnamese_math(text):
+    if not text: return ""
+    vn_chars = r'[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ]'
+    def fix_math(m):
+        content = m.group(1).strip()
+        if re.search(vn_chars, content):
+            return f"<i>{content}</i>" if content.startswith("(") and content.endswith(")") else f" {content} "
+        return f"${content}$"
+    res = re.sub(r'\$(.*?)\$', fix_math, str(text))
+    res = re.sub(r'  +', ' ', res)
+    return res.strip()
+
+def clean_question_bbt_text(q_text):
+    if not q_text: return ""
+    if "bảng biến thiên như sau:" in q_text:
+        parts = q_text.split("bảng biến thiên như sau:")
+        prefix = parts[0].rstrip() + " có bảng biến thiên như sau:"
+        tail = parts[1].strip()
+        match_ask = re.search(r'([A-ZÀ-Ỹ][^\.\n]*?(?:Có bao nhiêu|Hàm số|Tìm|Điểm|Mệnh đề|Khẳng định|Giá trị|Tập hợp|Khoảng cách)[^\.\n]*?\?.*)$', tail, re.DOTALL)
+        if match_ask:
+            return f"{prefix} {match_ask.group(1).strip()}"
+        else:
+            return prefix
+    return q_text
+
     def enrich_exam_data(exam):
         if not isinstance(exam, dict): return exam
         for p_key in ["p1", "p2", "p3"]:
@@ -2169,49 +2194,108 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
             p_time = st.session_state.get('exam_time_mins', 45)
             ex_code = exam.get('code', st.session_state.exam_code)
 
-            def get_bbt_print_html():
-                return """
-                <div style="text-align:center; margin:8px auto; max-width:480px;">
-                    <table style="width:100%; border-collapse:collapse; border:1.2px solid #000; font-family:'Times New Roman', serif; text-align:center; font-size:13px; line-height:1.4;">
-                        <tr style="border-bottom:1.2px solid #000;">
-                            <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold; width:45px;">$x$</td>
-                            <td style="padding:4px 10px;">$-\\infty$</td>
-                            <td style="padding:4px 10px;"></td>
-                            <td style="padding:4px 10px;">$-1$</td>
-                            <td style="padding:4px 10px;"></td>
-                            <td style="padding:4px 10px;">$1$</td>
-                            <td style="padding:4px 10px;"></td>
-                            <td style="padding:4px 10px;">$+\\infty$</td>
-                        </tr>
-                        <tr style="border-bottom:1.2px solid #000;">
-                            <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold;">$y'$</td>
-                            <td></td>
-                            <td style="padding:3px 8px;">$+$</td>
-                            <td style="padding:3px 8px; font-weight:bold;">$0$</td>
-                            <td style="padding:3px 8px;">$-$</td>
-                            <td style="padding:3px 8px; font-weight:bold;">$0$</td>
-                            <td style="padding:3px 8px;">$+$</td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td style="border-right:1.2px solid #000; padding:8px 8px; font-weight:bold; vertical-align:middle;">$y$</td>
-                            <td colspan="7" style="padding:4px 10px;">
-                                <table style="width:100%; border-collapse:collapse; text-align:center; font-size:12.5px;">
-                                    <tr>
-                                        <td style="vertical-align:bottom; width:15%; padding-top:16px;">$-\\infty$</td>
-                                        <td style="vertical-align:middle; width:15%; font-size:16px;">↗</td>
-                                        <td style="vertical-align:top; width:15%; font-weight:bold; padding-bottom:16px;">$2$</td>
-                                        <td style="vertical-align:middle; width:15%; font-size:16px;">↘</td>
-                                        <td style="vertical-align:bottom; width:15%; font-weight:bold; padding-top:16px;">$-2$</td>
-                                        <td style="vertical-align:middle; width:15%; font-size:16px;">↗</td>
-                                        <td style="vertical-align:top; width:15%; padding-bottom:16px;">$+\\infty$</td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                """
+            def get_bbt_print_html(q_data=None):
+                q_s = str(q_data.get('q', '') if isinstance(q_data, dict) else (q_data or '')).lower()
+                is_rational = ("\\setminus" in q_s or "không xác định" in q_s or "tiệm cận" in q_s or "3" in q_s and "1" in q_s)
+                if is_rational:
+                    return """
+                    <div style="text-align:center; margin:8px auto; max-width:540px;">
+                        <table style="width:100%; border-collapse:collapse; border:1.2px solid #000; font-family:'Times New Roman', serif; text-align:center; font-size:13px; line-height:1.4;">
+                            <tr style="border-bottom:1.2px solid #000;">
+                                <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold; width:45px;">$x$</td>
+                                <td style="padding:4px 8px;">$-\\infty$</td>
+                                <td style="padding:4px 8px;"></td>
+                                <td style="padding:4px 8px;">$-1$</td>
+                                <td style="padding:4px 8px;"></td>
+                                <td style="padding:4px 8px; font-weight:bold; border-left:1.5px solid #000; border-right:1.5px solid #000; background:#f8fafc;">$1$</td>
+                                <td style="padding:4px 8px;"></td>
+                                <td style="padding:4px 8px;">$3$</td>
+                                <td style="padding:4px 8px;"></td>
+                                <td style="padding:4px 8px;">$+\\infty$</td>
+                            </tr>
+                            <tr style="border-bottom:1.2px solid #000;">
+                                <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold;">$y'$</td>
+                                <td></td>
+                                <td style="padding:3px 8px;">$-$</td>
+                                <td style="padding:3px 8px; font-weight:bold;">$0$</td>
+                                <td style="padding:3px 8px;">$+$</td>
+                                <td style="padding:3px 8px; font-weight:bold; border-left:1.5px solid #000; border-right:1.5px solid #000; background:#f8fafc;"></td>
+                                <td style="padding:3px 8px;">$+$</td>
+                                <td style="padding:3px 8px; font-weight:bold;">$0$</td>
+                                <td style="padding:3px 8px;">$-$</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td style="border-right:1.2px solid #000; padding:8px 8px; font-weight:bold; vertical-align:middle;">$y$</td>
+                                <td colspan="4" style="padding:4px 6px; border-right:1.5px solid #000;">
+                                    <table style="width:100%; border-collapse:collapse; text-align:center; font-size:12px;">
+                                        <tr>
+                                            <td style="vertical-align:top; width:25%;">$2$</td>
+                                            <td style="vertical-align:middle; width:25%; font-size:16px;">↘</td>
+                                            <td style="vertical-align:bottom; width:25%; font-weight:bold;">$-1$</td>
+                                            <td style="vertical-align:middle; width:25%; font-size:16px;">↗</td>
+                                            <td style="vertical-align:top; width:25%;">$+\\infty$</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td colspan="5" style="padding:4px 6px; border-left:1.5px solid #000;">
+                                    <table style="width:100%; border-collapse:collapse; text-align:center; font-size:12px;">
+                                        <tr>
+                                            <td style="vertical-align:bottom; width:25%;">$-\\infty$</td>
+                                            <td style="vertical-align:middle; width:25%; font-size:16px;">↗</td>
+                                            <td style="vertical-align:top; width:25%; font-weight:bold;">$4$</td>
+                                            <td style="vertical-align:middle; width:25%; font-size:16px;">↘</td>
+                                            <td style="vertical-align:bottom; width:25%;">$2$</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    """
+                else:
+                    return """
+                    <div style="text-align:center; margin:8px auto; max-width:480px;">
+                        <table style="width:100%; border-collapse:collapse; border:1.2px solid #000; font-family:'Times New Roman', serif; text-align:center; font-size:13px; line-height:1.4;">
+                            <tr style="border-bottom:1.2px solid #000;">
+                                <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold; width:45px;">$x$</td>
+                                <td style="padding:4px 10px;">$-\\infty$</td>
+                                <td style="padding:4px 10px;"></td>
+                                <td style="padding:4px 10px;">$-1$</td>
+                                <td style="padding:4px 10px;"></td>
+                                <td style="padding:4px 10px;">$1$</td>
+                                <td style="padding:4px 10px;"></td>
+                                <td style="padding:4px 10px;">$+\\infty$</td>
+                            </tr>
+                            <tr style="border-bottom:1.2px solid #000;">
+                                <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold;">$y'$</td>
+                                <td></td>
+                                <td style="padding:3px 8px;">$+$</td>
+                                <td style="padding:3px 8px; font-weight:bold;">$0$</td>
+                                <td style="padding:3px 8px;">$-$</td>
+                                <td style="padding:3px 8px; font-weight:bold;">$0$</td>
+                                <td style="padding:3px 8px;">$+$</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td style="border-right:1.2px solid #000; padding:8px 8px; font-weight:bold; vertical-align:middle;">$y$</td>
+                                <td colspan="7" style="padding:4px 10px;">
+                                    <table style="width:100%; border-collapse:collapse; text-align:center; font-size:12.5px;">
+                                        <tr>
+                                            <td style="vertical-align:bottom; width:15%; padding-top:16px;">$-\\infty$</td>
+                                            <td style="vertical-align:middle; width:15%; font-size:16px;">↗</td>
+                                            <td style="vertical-align:top; width:15%; font-weight:bold; padding-bottom:16px;">$2$</td>
+                                            <td style="vertical-align:middle; width:15%; font-size:16px;">↘</td>
+                                            <td style="vertical-align:bottom; width:15%; font-weight:bold; padding-top:16px;">$-2$</td>
+                                            <td style="vertical-align:middle; width:15%; font-size:16px;">↗</td>
+                                            <td style="vertical-align:top; width:15%; padding-bottom:16px;">$+\\infty$</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    """
 
             def get_mslgn_print_html(ms_data):
                 grs = ms_data.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
@@ -2235,9 +2319,7 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
             def get_plot_print_html(f_data):
                 is_parabola = f_data.get("type") in ["parabola", "parabola_fprime"]
                 curve_d = "M -45 -35 Q 25 75 95 -35" if is_parabola else "M -85 55 Q -40 -65 0 0 T 85 -55"
-                parabola_decor = ""
-                if is_parabola:
-                    parabola_decor = '<text x="-35" y="12" font-size="9" font-family="Times New Roman">-1</text><circle cx="-25" cy="0" r="1.5" fill="#000"/><text x="20" y="12" font-size="9" font-family="Times New Roman">1</text><circle cx="25" cy="0" r="1.5" fill="#000"/><text x="70" y="12" font-size="9" font-family="Times New Roman">3</text><circle cx="75" cy="0" r="1.5" fill="#000"/><line x1="25" y1="0" x2="25" y2="40" stroke="#666" stroke-dasharray="2,2"/><line x1="0" y1="40" x2="25" y2="40" stroke="#666" stroke-dasharray="2,2"/><text x="30" y="44" font-size="9" font-family="Times New Roman">I(1;-4)</text>'
+                parabola_decor = '<text x="-35" y="12" font-size="9" font-family="Times New Roman">-1</text><circle cx="-25" cy="0" r="1.5" fill="#000"/><text x="20" y="12" font-size="9" font-family="Times New Roman">1</text><circle cx="25" cy="0" r="1.5" fill="#000"/><text x="70" y="12" font-size="9" font-family="Times New Roman">3</text><circle cx="75" cy="0" r="1.5" fill="#000"/><line x1="25" y1="0" x2="25" y2="40" stroke="#666" stroke-dasharray="2,2"/><line x1="0" y1="40" x2="25" y2="40" stroke="#666" stroke-dasharray="2,2"/><text x="30" y="44" font-size="9" font-family="Times New Roman">I(1;-4)</text>' if is_parabola else ''
                 return f"""
                 <div style="text-align:center; margin:8px auto;">
                     <svg width="240" height="150" viewBox="-120 -80 240 160" style="background:#ffffff; border:0.5px solid #cbd5e1; border-radius:4px;">
@@ -2262,14 +2344,15 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                 p1_html += f"<div style='font-weight:bold; margin:14px 0 6px 0; font-size:14px;'>PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn.</div>"
                 p1_html += f"<div style='font-style:italic; font-size:13px; margin-bottom:8px;'>Thí sinh trả lời từ câu 1 đến câu {len(exam['p1'])}. Mỗi câu hỏi thí sinh chỉ chọn một phương án.</div>"
                 for idx, q in enumerate(exam["p1"]):
-                    p1_html += f"<div style='margin-bottom:6px;'><b>Câu {idx+1}.</b> {q.get('q')}</div>"
-                    if q.get("bbt"): p1_html += get_bbt_print_html()
-                    elif q.get("mslgn_data"): p1_html += get_mslgn_print_html(q["mslgn_data"])
-                    elif q.get("f"): p1_html += get_plot_print_html(q["f"])
+                    clean_p1_q = clean_vietnamese_math(clean_question_bbt_text(q.get('q', '')))
+                    p1_html += f"<div style='margin-bottom:6px;'><b>Câu {idx+1}.</b> {clean_p1_q}</div>"
+                    if q.get("bbt") or "bảng biến thiên" in str(q.get('q', '')).lower(): p1_html += get_bbt_print_html(q)
+                    elif q.get("mslgn_data") or "ghép nhóm" in str(q.get('q', '')).lower(): p1_html += get_mslgn_print_html(q.get("mslgn_data", {}))
+                    elif q.get("f") or "đồ thị" in str(q.get('q', '')).lower(): p1_html += get_plot_print_html(q.get("f", {}))
                     
                     opts = q.get("opt", [])
                     if opts:
-                        clean_opts = [re.sub(r'^[A-D]\.\s*', '', str(o)).strip() for o in opts]
+                        clean_opts = [clean_vietnamese_math(re.sub(r'^[A-D]\.\s*', '', str(o)).strip()) for o in opts]
                         max_o_len = max([len(re.sub(r'[\$\\]', '', c)) for c in clean_opts]) if clean_opts else 10
                         if max_o_len <= 16:
                             p1_html += "<table style='width:100%; border:none; margin-bottom:8px;'><tr>"
@@ -2292,22 +2375,27 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                 p2_html += f"<div style='font-weight:bold; margin:14px 0 6px 0; font-size:14px;'>PHẦN II. Câu trắc nghiệm đúng sai.</div>"
                 p2_html += f"<div style='font-style:italic; font-size:13px; margin-bottom:8px;'>Thí sinh trả lời từ câu 1 đến câu {len(exam['p2'])}. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.</div>"
                 for idx, q in enumerate(exam["p2"]):
-                    p2_html += f"<div style='margin-bottom:6px;'><b>Câu {idx+1}.</b> {q.get('q')}</div>"
-                    if q.get("bbt"): p2_html += get_bbt_print_html()
-                    elif q.get("mslgn_data"): p2_html += get_mslgn_print_html(q["mslgn_data"])
-                    elif q.get("f"): p2_html += get_plot_print_html(q["f"])
+                    clean_p2_q = clean_vietnamese_math(clean_question_bbt_text(q.get('q', '')))
+                    p2_html += f"<div style='margin-bottom:6px;'><b>Câu {idx+1}.</b> {clean_p2_q}</div>"
+                    if q.get("bbt") or "bảng biến thiên" in str(q.get('q', '')).lower(): p2_html += get_bbt_print_html(q)
+                    elif q.get("mslgn_data") or "ghép nhóm" in str(q.get('q', '')).lower(): p2_html += get_mslgn_print_html(q.get("mslgn_data", {}))
+                    elif q.get("f") or "đồ thị" in str(q.get('q', '')).lower(): p2_html += get_plot_print_html(q.get("f", {}))
                     for s_i, stm in enumerate(q.get("stmts", [])):
-                        p2_html += f"<div style='padding-left:18px; margin-bottom:4px;'><b>{chr(97+s_i)})</b> {stm.get('t')} <span style='float:right;'>[ &nbsp; ] Đúng &nbsp;&nbsp;&nbsp; [ &nbsp; ] Sai</span></div>"
+                        # CHUẨN THỂ THỨC BỘ GD&ĐT: LIỆT KÊ Ý A, B, C, D SẠCH SẼ, KHÔNG ĐỂ Ô CHỌN / CHỮ ĐÚNG SAI TRÔI NỔI
+                        clean_stm_t = clean_vietnamese_math(stm.get('t', ''))
+                        p2_html += f"<div style='padding-left:18px; margin-bottom:5px;'><b>{chr(97+s_i)})</b> {clean_stm_t}</div>"
 
             p3_html = ""
             if exam.get("p3"):
                 p3_html += f"<div style='font-weight:bold; margin:14px 0 6px 0; font-size:14px;'>PHẦN III. Câu trắc nghiệm trả lời ngắn.</div>"
                 p3_html += f"<div style='font-style:italic; font-size:13px; margin-bottom:8px;'>Thí sinh trả lời từ câu 1 đến câu {len(exam['p3'])}.</div>"
                 for idx, q in enumerate(exam["p3"]):
-                    p3_html += f"<div style='margin-bottom:8px;'><b>Câu {idx+1}.</b> {q.get('q')} <span style='float:right; border-bottom:1px solid #000; width:90px; display:inline-block;'></span></div>"
-                    if q.get("bbt"): p3_html += get_bbt_print_html()
-                    elif q.get("mslgn_data"): p3_html += get_mslgn_print_html(q["mslgn_data"])
-                    elif q.get("f"): p3_html += get_plot_print_html(q["f"])
+                    clean_p3_q = clean_vietnamese_math(clean_question_bbt_text(q.get('q', '')))
+                    # BỎ HOÀN TOÀN DẤU GẠCH CHÂN DƯ THỪA Ở CUỐI CÂU
+                    p3_html += f"<div style='margin-bottom:8px;'><b>Câu {idx+1}.</b> {clean_p3_q}</div>"
+                    if q.get("bbt") or "bảng biến thiên" in str(q.get('q', '')).lower(): p3_html += get_bbt_print_html(q)
+                    elif q.get("mslgn_data") or "ghép nhóm" in str(q.get('q', '')).lower(): p3_html += get_mslgn_print_html(q.get("mslgn_data", {}))
+                    elif q.get("f") or "đồ thị" in str(q.get('q', '')).lower(): p3_html += get_plot_print_html(q.get("f", {}))
 
             preview_html = f"""<!DOCTYPE html>
 <html>
@@ -2386,7 +2474,8 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 
         def sanitize_latex(txt):
             if not txt: return ""
-            pts = re.split(r'(\$.*?\$)', str(txt), flags=re.DOTALL)
+            txt_clean = clean_vietnamese_math(clean_question_bbt_text(txt))
+            pts = re.split(r'(\$.*?\$)', str(txt_clean), flags=re.DOTALL)
             for i in range(0, len(pts), 2):
                 pts[i] = re.sub(r'(?<!\\)&', r'\&', pts[i])
                 pts[i] = re.sub(r'(?<!\\)%', r'\%', pts[i])
@@ -2503,8 +2592,19 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 """
                 for idx, q in enumerate(exam["p1"]):
                     latex_code += r"\item " + sanitize_latex(q.get('q', '')) + "\n"
-                    if q.get("bbt"):
-                        latex_code += r"""\begin{center}
+                    if q.get("bbt") or "bảng biến thiên" in str(q.get('q', '')).lower():
+                        q_s = str(q.get('q', '')).lower()
+                        if "\\setminus" in q_s or "không xác định" in q_s or "tiệm cận" in q_s or "3" in q_s:
+                            latex_code += r"""\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=1.2,espcl=1.8]{$x$/0.8,$y'$/0.8,$y$/2}{$-\infty$,$-1$,$1$,$3$,$+\infty$}
+\tkzTabLine{,-,0,+,d,+,0,-,}
+\tkzTabVar{+/$2$,-/$-1$,+D-/$+\infty$/$-\infty$,+/$4$,-/$2$}
+\end{tikzpicture}
+\end{center}
+"""
+                        else:
+                            latex_code += r"""\begin{center}
 \begin{tikzpicture}
 \tkzTabInit[lgt=1.2,espcl=2]{$x$/0.8,$y'$/0.8,$y$/1.5}{$-\infty$,$-1$,$1$,$+\infty$}
 \tkzTabLine{,+,0,-,0,+,}
@@ -2512,10 +2612,10 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \end{tikzpicture}
 \end{center}
 """
-                    elif q.get("mslgn_data"):
-                        ms = q["mslgn_data"]
-                        grs = ms.get("groups", [])
-                        frs = ms.get("freq", [])
+                    elif q.get("mslgn_data") or "ghép nhóm" in str(q.get('q', '')).lower():
+                        ms = q.get("mslgn_data", {})
+                        grs = ms.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
+                        frs = ms.get("freq", [5, 12, 18, 10, 5])
                         latex_code += r"""\begin{center}
 \begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
 \textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
@@ -2523,9 +2623,9 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \end{tabular}
 \end{center}
 """
-                    elif q.get("f"):
-                        f_info = q["f"]
-                        is_p = f_info.get("type") in ["parabola", "parabola_fprime"]
+                    elif q.get("f") or "đồ thị" in str(q.get('q', '')).lower():
+                        f_info = q.get("f", {})
+                        is_p = f_info.get("type") in ["parabola", "parabola_fprime"] or "parabol" in str(q.get('q', '')).lower()
                         if is_p:
                             latex_code += r"""\begin{center}
 \begin{tikzpicture}[scale=0.7]
@@ -2560,8 +2660,19 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 """
                 for idx, q in enumerate(exam["p2"]):
                     latex_code += r"\item " + sanitize_latex(q.get('q', '')) + "\n"
-                    if q.get("bbt"):
-                        latex_code += r"""\begin{center}
+                    if q.get("bbt") or "bảng biến thiên" in str(q.get('q', '')).lower():
+                        q_s = str(q.get('q', '')).lower()
+                        if "\\setminus" in q_s or "không xác định" in q_s or "tiệm cận" in q_s or "3" in q_s:
+                            latex_code += r"""\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=1.2,espcl=1.8]{$x$/0.8,$y'$/0.8,$y$/2}{$-\infty$,$-1$,$1$,$3$,$+\infty$}
+\tkzTabLine{,-,0,+,d,+,0,-,}
+\tkzTabVar{+/$2$,-/$-1$,+D-/$+\infty$/$-\infty$,+/$4$,-/$2$}
+\end{tikzpicture}
+\end{center}
+"""
+                        else:
+                            latex_code += r"""\begin{center}
 \begin{tikzpicture}
 \tkzTabInit[lgt=1.2,espcl=2]{$x$/0.8,$y'$/0.8,$y$/1.5}{$-\infty$,$-1$,$1$,$+\infty$}
 \tkzTabLine{,+,0,-,0,+,}
@@ -2569,10 +2680,10 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \end{tikzpicture}
 \end{center}
 """
-                    elif q.get("mslgn_data"):
-                        ms = q["mslgn_data"]
-                        grs = ms.get("groups", [])
-                        frs = ms.get("freq", [])
+                    elif q.get("mslgn_data") or "ghép nhóm" in str(q.get('q', '')).lower():
+                        ms = q.get("mslgn_data", {})
+                        grs = ms.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
+                        frs = ms.get("freq", [5, 12, 18, 10, 5])
                         latex_code += r"""\begin{center}
 \begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
 \textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
@@ -2583,7 +2694,8 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                     latex_code += r"""\begin{enumerate}[label=\textbf{\alph*)}]
 """
                     for s_idx, stmt in enumerate(q.get("stmts", [])):
-                        latex_code += r"\item " + sanitize_latex(stmt.get('t', '')) + r" \hfill [\quad] Đúng \quad [\quad] Sai" + "\n"
+                        # CHUẨN THỂ THỨC BỘ GD&ĐT: LIỆT KÊ SẠCH SẼ Ý A, B, C, D
+                        latex_code += r"\item " + sanitize_latex(stmt.get('t', '')) + "\n"
                     latex_code += r"""\end{enumerate}
 """
                 latex_code += r"""\end{enumerate}"""
@@ -2593,9 +2705,21 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \begin{enumerate}[label=\textbf{Câu \arabic*.}]
 """
                 for idx, q in enumerate(exam["p3"]):
+                    # BỎ HOÀN TOÀN GẠCH CHÂN DƯ THỪA TRONG LATEX
                     latex_code += r"\item " + sanitize_latex(q.get('q', '')) + "\n"
-                    if q.get("bbt"):
-                        latex_code += r"""\begin{center}
+                    if q.get("bbt") or "bảng biến thiên" in str(q.get('q', '')).lower():
+                        q_s = str(q.get('q', '')).lower()
+                        if "\\setminus" in q_s or "không xác định" in q_s or "tiệm cận" in q_s or "3" in q_s:
+                            latex_code += r"""\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=1.2,espcl=1.8]{$x$/0.8,$y'$/0.8,$y$/2}{$-\infty$,$-1$,$1$,$3$,$+\infty$}
+\tkzTabLine{,-,0,+,d,+,0,-,}
+\tkzTabVar{+/$2$,-/$-1$,+D-/$+\infty$/$-\infty$,+/$4$,-/$2$}
+\end{tikzpicture}
+\end{center}
+"""
+                        else:
+                            latex_code += r"""\begin{center}
 \begin{tikzpicture}
 \tkzTabInit[lgt=1.2,espcl=2]{$x$/0.8,$y'$/0.8,$y$/1.5}{$-\infty$,$-1$,$1$,$+\infty$}
 \tkzTabLine{,+,0,-,0,+,}
@@ -2603,10 +2727,10 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \end{tikzpicture}
 \end{center}
 """
-                    elif q.get("mslgn_data"):
-                        ms = q["mslgn_data"]
-                        grs = ms.get("groups", [])
-                        frs = ms.get("freq", [])
+                    elif q.get("mslgn_data") or "ghép nhóm" in str(q.get('q', '')).lower():
+                        ms = q.get("mslgn_data", {})
+                        grs = ms.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
+                        frs = ms.get("freq", [5, 12, 18, 10, 5])
                         latex_code += r"""\begin{center}
 \begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
 \textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
