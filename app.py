@@ -1597,21 +1597,6 @@ BIGDATA_CURRICULUM = {
     }
 }
 
-# ------------------------------------------------------------------------------
-# TRẠM 3: KHẢO THÍ ĐỘC LẬP (MÃ ĐỀ 4 CHỮ SỐ & LATEX IN ẤN CHUẨN BỘ)
-# ------------------------------------------------------------------------------
-with tab3:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.subheader(f"📝 Trạm 3: Khảo Thí Độc Lập - Môn {subject} (Lớp {grade_num})")
-    st.caption("Cấu trúc Khảo thí 2026 (Theo QĐ 764/QĐ-BGDĐT) • Mã đề 4 chữ số chuẩn Bộ • Tệp in ấn LaTeX căn giữa inline with text • Chấm điểm tức thì.")
-
-    if "exam_state" not in st.session_state: st.session_state.exam_state = "config"
-    if "exam_data" not in st.session_state: st.session_state.exam_data = None
-    if "violation_count" not in st.session_state: st.session_state.violation_count = 0
-    if "exam_answers" not in st.session_state: st.session_state.exam_answers = {}
-    if "tram3_chat_messages" not in st.session_state: st.session_state.tram3_chat_messages = []
-    if "exam_code" not in st.session_state: st.session_state.exam_code = str(random.randint(1011, 9999))
-
 def clean_vietnamese_math(text):
     if not text: return ""
     vn_chars = r'[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ]'
@@ -1636,6 +1621,21 @@ def clean_question_bbt_text(q_text):
         else:
             return prefix
     return q_text
+
+# ------------------------------------------------------------------------------
+# TRẠM 3: KHẢO THÍ ĐỘC LẬP (MÃ ĐỀ 4 CHỮ SỐ & LATEX IN ẤN CHUẨN BỘ)
+# ------------------------------------------------------------------------------
+with tab3:
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader(f"📝 Trạm 3: Khảo Thí Độc Lập - Môn {subject} (Lớp {grade_num})")
+    st.caption("Cấu trúc Khảo thí 2026 (Theo QĐ 764/QĐ-BGDĐT) • Mã đề 4 chữ số chuẩn Bộ • Tệp in ấn LaTeX căn giữa inline with text • Chấm điểm tức thì.")
+
+    if "exam_state" not in st.session_state: st.session_state.exam_state = "config"
+    if "exam_data" not in st.session_state: st.session_state.exam_data = None
+    if "violation_count" not in st.session_state: st.session_state.violation_count = 0
+    if "exam_answers" not in st.session_state: st.session_state.exam_answers = {}
+    if "tram3_chat_messages" not in st.session_state: st.session_state.tram3_chat_messages = []
+    if "exam_code" not in st.session_state: st.session_state.exam_code = str(random.randint(1011, 9999))
 
     def enrich_exam_data(exam):
         if not isinstance(exam, dict): return exam
