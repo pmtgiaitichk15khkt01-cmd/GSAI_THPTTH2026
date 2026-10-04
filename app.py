@@ -1566,19 +1566,19 @@ with tab3:
                                 fig_mini.add_trace(go.Scatter(x=[x_pt, x_pt], y=[0, y_pt], mode='lines', line=dict(color='#94a3b8', width=1.2, dash='dot'), hoverinfo='skip', showlegend=False))
                                 fig_mini.add_trace(go.Scatter(x=[0, x_pt], y=[y_pt, y_pt], mode='lines', line=dict(color='#94a3b8', width=1.2, dash='dot'), hoverinfo='skip', showlegend=False))
                                 fig_mini.add_trace(go.Scatter(x=[x_pt], y=[y_pt], mode='markers+text', 
-                                                            marker=dict(size=6, color='#fbbf24', line=dict(color='#ffffff', width=1)), 
-                                                            text=[f"{label}({fmt_c(x_pt)};{fmt_c(y_pt)})"], 
-                                                            textposition="top center" if is_max else "bottom center", 
-                                                            font=dict(color='#fbbf24', size=11), showlegend=False))
+                                                              marker=dict(size=6, color='#fbbf24', line=dict(color='#ffffff', width=1)), 
+                                                              text=[f"{label}({fmt_c(x_pt)};{fmt_c(y_pt)})"], 
+                                                              textposition="top center" if is_max else "bottom center", 
+                                                              font=dict(color='#fbbf24', size=11), showlegend=False))
                             
                             if abs(fa) > 1e-4:
                                 xu = -fb / (3*fa)
                                 yu = fa*(xu**3) + fb*(xu**2) + fc*xu + fd
                                 fig_mini.add_trace(go.Scatter(x=[xu], y=[yu], mode='markers+text', 
-                                                            marker=dict(size=5, color='#c084fc'), 
-                                                            text=[f"U({fmt_c(xu)};{fmt_c(yu)})"], 
-                                                            textposition="top right", 
-                                                            font=dict(color='#c084fc', size=10), showlegend=False))
+                                                              marker=dict(size=5, color='#c084fc'), 
+                                                              text=[f"U({fmt_c(xu)};{fmt_c(yu)})"], 
+                                                              textposition="top right", 
+                                                              font=dict(color='#c084fc', size=10), showlegend=False))
                             setup_pedagogical_oxy(fig_mini, [x_min, x_max], [y_min, y_max])
                             fig_mini.update_layout(height=240, margin=dict(l=10, r=10, t=10, b=10))
                             st.plotly_chart(fig_mini, use_container_width=True)
@@ -1664,9 +1664,9 @@ with tab3:
                                 st.plotly_chart(fig_mini, use_container_width=True)
                     except Exception:
                         pass
-                elif isinstance(f_data, str) and f_data.strip():
-                    clean_str = f_data.replace('**', '^').replace('*', '').replace(' ', '')
-                    st.latex("y = " + clean_str)
+            elif isinstance(f_data, str) and f_data.strip():
+                clean_str = f_data.replace('**', '^').replace('*', '').replace(' ', '')
+                st.latex("y = " + clean_str)
 
     # 1. CẤU HÌNH ĐỀ THI
     if st.session_state.exam_state == "config":
@@ -1965,13 +1965,15 @@ RÀO CHẮN THÉP PHÁP LÝ & HỌC THUẬT (BỘ SÁCH KẾT NỐI TRI THỨC V
         loi_sai_logs = []
 
         if subject == "Ngữ văn":
+            # Gộp toàn bộ bài làm của học sinh lại để AI đọc
             student_submission = ""
             for key, val in answers.items():
                 if str(val).strip():
                     student_submission += f"- {val}\n"
             
+            # BỘ LỌC CHỐNG GÕ BỪA: Nếu bỏ giấy trắng hoặc gõ quá ngắn (< 30 ký tự)
             if len(student_submission.strip()) < 30:
-                final_score = 1.0 
+                final_score = 1.0  # Điểm liệt ngay lập tức
                 loi_sai_logs.append("Bỏ giấy trắng hoặc làm bài chống đối")
             else:
                 with st.spinner("AI đang đọc và phân tích bài luận Ngữ văn của em..."):
@@ -1987,13 +1989,14 @@ Bài làm của học sinh:
 YÊU CẦU DUY NHẤT: Trả về ĐÚNG 1 CON SỐ thập phân từ 1.0 đến 10.0 đại diện cho điểm số (KHÔNG VIẾT BẤT KỲ CHỮ NÀO KHÁC)."""
                         
                         score_str = call_gemini_with_fallback(grading_prompt).strip()
+                        # Dùng Regex để bắt đúng con số điểm, đề phòng AI trả lời dài dòng
                         match = re.search(r'(\d+\.\d+|\d+)', score_str)
                         if match:
                             final_score = float(match.group(1))
                         else:
                             final_score = 5.0
                     except:
-                        final_score = 4.5 
+                        final_score = 4.5 # Điểm vớt nếu AI nghẽn mạng
             
             final_score = round(min(final_score, 10.0), 2)
             if final_score < 5.0:
@@ -2066,6 +2069,7 @@ YÊU CẦU DUY NHẤT: Trả về ĐÚNG 1 CON SỐ thập phân từ 1.0 đến
                 try: requests.post(sheet_webhook_url, json=entry, timeout=5)
                 except Exception: pass
             
+            # Lưu log vá lỗi tự động
             if loi_sai_logs and final_score < 10.0:
                 st.session_state.va_loi_logs.append({
                     "name": student_name, "subject": subject, "grade": grade_num,
@@ -2137,7 +2141,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                     st.markdown(rep)
                     st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
-        # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (NĂM HỌC ĐỘNG `ay`, ĐƯỜNG KẺ NGANG ĐÚNG VÙNG THỜI GIAN, MÃ ĐỀ 4 SỐ)
+        # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026
         st.markdown("---")
         st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
         latex_mode = st.radio("Định dạng xuất:", ["Chỉ xuất Đề thi in ấn", "Xuất Đề thi kèm Bảng đáp án"], horizontal=True)
@@ -2154,166 +2158,98 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 
         school_lvl = "THCS" if grade_num <= 9 else "THPT"
         ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
-        
-        # NĂM HỌC ĐỘNG TỰ ĐỘNG
         curr_y = datetime.now(VN_TZ).year
         ay = f"{curr_y} -- {curr_y + 1}" if datetime.now(VN_TZ).month >= 9 else f"{curr_y - 1} -- {curr_y}"
-        
-        # MÃ ĐỀ NGẪU NHIÊN CHUẨN 4 CHỮ SỐ
-        ma_de_thi = f"{random.randint(100, 9999):04d}"
 
-        # HEADER HOÀN HẢO: NĂM HỌC ĐỘNG `ay`, ĐƯỜNG KẺ NGANG CHỈ NẰM TRONG CỘT THỜI GIAN PHẢI, MÃ ĐỀ 4 SỐ
         latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
 \usepackage[vietnamese]{babel}
 \usepackage{amsmath, amssymb, amsfonts, mathrsfs}
-\usepackage[top=1.5cm, bottom=1.5cm, left=1.5cm, right=1.5cm]{geometry}
+\usepackage[margin=1.5cm]{geometry}
 \usepackage{multicol}
 \usepackage{enumitem}
 \usepackage{tikz, tkz-tab, tkz-euclide}
-\usepackage{lastpage}
 \usepackage{fancyhdr}
-
 \pagestyle{fancy}
 \fancyhf{}
-\renewcommand{\headrulewidth}{0pt}
-\cfoot{\small Trang \thepage/\pageref{LastPage} - Mã đề """ + str(ma_de_thi) + r"""}
-
-\setlength{\parindent}{0pt}
-\setlength{\columnsep}{0.5cm}
+\lhead{\textbf{Trường """ + school_lvl + r""" TÂN HIỆP \& THIỆN NHÂN}}
+\rhead{\textbf{Đề khảo thí môn """ + subject + r""" """ + str(grade_num) + r"""}}
+\cfoot{Trang \thepage}
 
 \begin{document}
-
-\noindent
-\begin{minipage}[t]{0.42\textwidth}
-    \begin{center}
-        \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO} \\
-        \textbf{AN GIANG} \\
-        \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\[0.1cm]
-        \textbf{ĐỀ THI CHÍNH THỨC} \\
-        \textit{(Đề thi có \pageref{LastPage} trang)}
-    \end{center}
-\end{minipage}%
-\hfill
-\begin{minipage}[t]{0.56\textwidth}
-    \begin{center}
-        \textbf{\small KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM HỌC """ + ay + r"""} \\[0.05cm]
-        Môn thi: \textbf{""" + subject.upper() + r"""} \\[0.05cm]
-        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề} \\[0.05cm]
-        \rule{\linewidth}{0.5pt}
-    \end{center}
-\end{minipage}
-
-\vspace{0.4cm}
-\noindent
-\begin{minipage}[b]{0.65\textwidth}
-    \textbf{Họ, tên thí sinh:}\ \dotfill \\
-    \textbf{Số báo danh:}\ \dotfill
-\end{minipage}%
-\hfill
-\begin{minipage}[b]{0.3\textwidth}
-    \raggedleft
-    \fbox{\makebox[3cm]{\rule[-0.15cm]{0cm}{0.5cm} Mã đề: """ + str(ma_de_thi) + r"""}}
-\end{minipage}
-
-\vspace{0.3cm}
-\noindent
+\begin{center}
+    \textbf{\Large ĐỀ KHẢO THÍ CHUẨN CẤU TRÚC KHKT 2026}\\[0.5cm]
+\end{center}
 """
         if subject == "Ngữ văn":
             dh = exam.get("part_doc_hieu", {})
-            latex_code += r"""\textbf{PHẦN I. ĐỌC HIỂU (4.0 điểm)}\vspace{0.15cm}
+            latex_code += r"""\noindent\textbf{PHẦN I. ĐỌC HIỂU (4.0 điểm)}\\
 \begin{center}
-\fbox{\begin{minipage}{0.95\linewidth}
+\fbox{\begin{minipage}{0.9\linewidth}
 \itshape """ + sanitize_latex(dh.get("text", "")) + r"""
 \end{minipage}}
-\end{center}\vspace{0.15cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=2pt, parsep=0pt]
+\end{center}\vspace{0.2cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}]
 """
             for idx, q in enumerate(dh.get("questions", [])):
                 latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
             latex_code += r"""\end{enumerate}
-\vspace{0.3cm}\noindent\textbf{PHẦN II. VIẾT (6.0 điểm)}\vspace{0.15cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=2pt, parsep=0pt]
+\vspace{0.2cm}\noindent\textbf{PHẦN II. VIẾT (6.0 điểm)}\\[0.2cm]
+\begin{enumerate}[label=\textbf{Câu \arabic*.}]
 """
             for idx, v in enumerate(exam.get("part_viet", [])):
                 latex_code += f"\\item \\textbf{{({'2.0' if idx==0 else '4.0'} điểm).}} {sanitize_latex(v.get('q', ''))}\n"
             latex_code += r"""\end{enumerate}"""
         else:
             if exam.get("p1"):
-                p1_len = len(exam["p1"])
-                latex_code += r"""\textbf{PHẦN I.} Thí sinh trả lời từ câu 1 đến câu """ + str(p1_len) + r""". Mỗi câu hỏi thí sinh chỉ chọn một phương án.\vspace{0.15cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=4pt, parsep=0pt]
+                latex_code += r"""\noindent\textbf{PHẦN I. Trắc nghiệm nhiều lựa chọn.}\vspace{0.2cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}]
 """
                 for idx, q in enumerate(exam["p1"]):
-                    q_text = sanitize_latex(q.get('q', ''))
-                    latex_code += f"\\item {q_text}\n"
+                    latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
                     opts = [sanitize_latex(o) for o in q.get("opt", [])]
-                    
-                    max_opt_len = max([len(re.sub(r'\$.*?\$', '', opt)) for opt in opts]) if opts else 0
-                    if max_opt_len < 15:
-                        cols = 4  
-                    elif max_opt_len < 40:
-                        cols = 2  
-                    else:
-                        cols = 1  
-                        
-                    if cols > 1:
-                        latex_code += f"\\vspace{{-0.2cm}}\\begin{{multicols}}{{{cols}}}\n"
-                    
-                    latex_code += "\\begin{enumerate}[label=\\textbf{\\Alph*.}, leftmargin=*, itemsep=0pt, parsep=0pt, topsep=0pt]\n"
+                    latex_code += "\\begin{multicols}{2}\n\\begin{enumerate}[label=\\textbf{\\Alph*.}]\n"
                     for opt in opts:
+                        # Lọc bỏ tiền tố A., B., C., D. do đã có enumerate
                         opt_clean = re.sub(r'^[A-D]\.\s*', '', opt)
                         latex_code += f"\\item {opt_clean}\n"
-                    latex_code += "\\end{enumerate}\n"
-                    
-                    if cols > 1:
-                        latex_code += "\\end{multicols}\n"
-                        
+                    latex_code += "\\end{enumerate}\n\\end{multicols}\n"
                 latex_code += r"""\end{enumerate}"""
                 
             if exam.get("p2"):
-                p2_len = len(exam["p2"])
-                latex_code += r"""\vspace{0.3cm}\noindent\textbf{PHẦN II.} Thí sinh trả lời từ câu 1 đến câu """ + str(p2_len) + r""". Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.\vspace{0.15cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=4pt, parsep=0pt]
+                latex_code += r"""\vspace{0.2cm}\noindent\textbf{PHẦN II. Trắc nghiệm đúng sai.}\vspace{0.2cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}]
 """
                 for idx, q in enumerate(exam["p2"]):
                     latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
-                    latex_code += "\\begin{enumerate}[label=\\textbf{\\alph*)}, leftmargin=*, itemsep=2pt, parsep=0pt]\n"
+                    latex_code += "\\begin{enumerate}[label=\\textbf{\\alph*)}]\n"
                     for s_idx, stmt in enumerate(q.get("stmts", [])):
-                        latex_code += f"\\item {sanitize_latex(stmt.get('t', ''))}\n"
+                        latex_code += f"\\item {sanitize_latex(stmt.get('t', ''))} \\hfill [\\quad] Đúng \\quad [\\quad] Sai\n"
                     latex_code += "\\end{enumerate}\n"
                 latex_code += r"""\end{enumerate}"""
                 
             if exam.get("p3"):
-                p3_len = len(exam["p3"])
-                latex_code += r"""\vspace{0.3cm}\noindent\textbf{PHẦN III.} Thí sinh trả lời từ câu 1 đến câu """ + str(p3_len) + r""".\vspace{0.15cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=4pt, parsep=0pt]
+                latex_code += r"""\vspace{0.2cm}\noindent\textbf{PHẦN III. Trả lời ngắn.}\vspace{0.2cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}]
 """
                 for idx, q in enumerate(exam["p3"]):
                     latex_code += f"\\item {sanitize_latex(q.get('q', ''))} \\hfill \\framebox[2.5cm]{{\\rule{{0pt}}{{1.8ex}}Đáp số:}}\n"
                 latex_code += r"""\end{enumerate}"""
 
         if "kèm Bảng đáp án" in latex_mode and exam.get("p1"):
-            latex_code += r"""\newpage\begin{center}\textbf{\Large BẢNG ĐÁP ÁN PHẦN I - MÃ ĐỀ """ + str(ma_de_thi) + r"""}\end{center}
-\begin{center}
-\renewcommand{\arraystretch}{1.5}
-\begin{tabular}{|""" + "c|" * len(exam["p1"]) + r"""}\hline
+            latex_code += r"""\newpage\begin{center}\textbf{\Large ĐÁP ÁN NHANH PHẦN I}\end{center}
+\noindent\begin{tabular}{|""" + "c|" * len(exam["p1"]) + r"""}\hline
 """
             latex_code += " & ".join([f"\\textbf{{{i+1}}}" for i in range(len(exam["p1"]))]) + r""" \\ \hline
 """
             latex_code += " & ".join([f"\\textbf{{{q.get('ans', '')}}}" for q in exam["p1"]]) + r""" \\ \hline
 \end{tabular}
-\end{center}
 """
-        latex_code += r"""\vspace{0.5cm}
-\begin{center}
-    \textbf{--- HẾT ---}
-\end{center}
-\end{document}"""
+        latex_code += r"""\end{document}"""
 
         st.code(latex_code, language="latex")
-        st.download_button("📥 Tải tệp .tex cho Overleaf (Chuẩn Bộ)", data=latex_code, file_name=f"DeThi_{subject}_Lop{grade_num}_MaDe{ma_de_thi}.tex", mime="text/plain")
+        st.download_button("📥 Tải tệp .tex cho Overleaf (Chuẩn Bộ)", data=latex_code, file_name=f"DeThi_{subject}_Lop{grade_num}.tex", mime="text/plain")
 
         st.markdown("---")
         if st.button("🔄 Làm đề khảo thí mới"):
