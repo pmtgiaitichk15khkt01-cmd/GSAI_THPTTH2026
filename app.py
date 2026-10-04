@@ -18,11 +18,23 @@ import math
 import scipy.stats as stats
 import concurrent.futures
 import plotly.express as px
+import urllib.parse
+import ast
 
 # --- 1. ĐỒNG BỘ GIỜ VIỆT NAM (GMT+7) CHUẨN XÁC ---
 VN_TZ = timezone(timedelta(hours=7))
 def get_vn_time():
     return datetime.now(VN_TZ).strftime("%Y-%m-%d %H:%M:%S")
+
+# --- ĐỌC SECRETS AN TOÀN (không sập app khi chạy máy cục bộ chưa có secrets.toml) ---
+def get_secret(name, default=""):
+    try:
+        return st.secrets.get(name, default)
+    except Exception:
+        return default
+
+# np.trapezoid chỉ có ở NumPy >= 2.0; bản cũ dùng np.trapz
+_trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")
 
 # --- 2. KHỞI TẠO BỘ NHỚ PHIÊN & BỘ ĐẾM THỰC NGHIỆM TỰ ĐỘNG ---
 for key in ["messages", "analytics_logs", "feedback_logs", "parsed_quiz", "va_loi_logs"]:
@@ -47,7 +59,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-APP_URL = "https://github.com/pmtgiaitichk15khkt01-cmd/GSAI_THPTTH2026/edit/main/app.py"
+APP_URL = get_secret("APP_URL", "https://github.com/pmtgiaitichk15khkt01-cmd/GSAI_THPTTH2026")
 
 # ==============================================================================
 # TÂN TRANG GIAO DIỆN (UI/UX NÂNG CẤP DÀNH CHO KHKT)
@@ -143,22 +155,22 @@ school_icon_svg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/sv
 st.sidebar.markdown(f'<div class="brand-container"><img src="{school_icon_svg}" class="school-icon" alt="Icon Trường">{logo_html}</div><div style="text-align: center; margin-bottom: 15px;"><h2 style="color: #38bdf8; font-weight: 800; font-size: 1.8rem; margin: 0; text-shadow: 0px 2px 4px rgba(0,0,0,0.5);">THIẾT LẬP HỌC TẬP</h2></div>', unsafe_allow_html=True)
 
 with st.sidebar.expander("📱 Quét mã QR vào app trên điện thoại", expanded=False):
-    qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={APP_URL}"
-    st.image(qr_api_url, caption="Bật camera Zalo/iPhone quét mượt mà!", use_container_width=True)
+    qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(APP_URL, safe='')}"
+    st.image(qr_api_url, caption="Bật camera Zalo/iPhone quét mượt mà!", width="stretch")
     st.markdown(f'<div class="short-link-badge">🔗 {APP_URL}</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔑 ĐƯỜNG TRUYỀN AI CÁ NHÂN (0 ĐỒNG)")
 
-st.sidebar.link_button("👉 Lấy Key riêng miễn phí (15s)", "https://aistudio.google.com/apikey", use_container_width=True)
+st.sidebar.link_button("👉 Lấy Key riêng miễn phí (15s)", "https://aistudio.google.com/apikey", width="stretch")
 user_custom_key = st.sidebar.text_input("Dán mã API Key của em vào đây:", type="password", placeholder="AIzaSy...")
 
-raw_api_key = st.secrets.get("GEMINI_API_KEY", "")
-raw_sheet_url = st.secrets.get("GOOGLE_SHEET_URL", "")
+raw_api_key = get_secret("GEMINI_API_KEY")
+raw_sheet_url = get_secret("GOOGLE_SHEET_URL")
 sheet_webhook_url = "".join(raw_sheet_url.split()) if raw_sheet_url else ""
 
 # TÍCH HỢP ĐƯỜNG LINK XEM GOOGLE SHEETS
-sheet_view_url_secret = st.secrets.get("GOOGLE_SHEET_VIEW_URL", "")
+sheet_view_url_secret = get_secret("GOOGLE_SHEET_VIEW_URL")
 sheet_view_url = "".join(sheet_view_url_secret.split()) if sheet_view_url_secret else sheet_webhook_url
 
 # TỰ ĐỘNG FETCH DỮ LIỆU TỪ GOOGLE SHEETS (DÀNH CHO TRẠM CHỦ)
@@ -205,7 +217,7 @@ with st.sidebar.expander("🛠️ Báo lỗi ứng dụng & Góp ý trải nghi�
     fb_category = st.selectbox("Loại vấn đề gặp phải:", ["📷 Lỗi nhận diện chữ", "📊 Lỗi đồ thị Lab", "🤖 AI giải thích khó hiểu", "⏳ Ứng dụng chậm", "💡 Đề xuất mới"])
     fb_rating = st.feedback("stars", key="fb_stars")
     fb_detail = st.text_area("Mô tả chi tiết:", key="fb_text")
-    if st.button("📤 Gửi phản hồi", use_container_width=True) and fb_detail.strip():
+    if st.button("📤 Gửi phản hồi", width="stretch") and fb_detail.strip():
         fb_entry = {"time": get_vn_time(), "name": student_name, "grade": grade, "subject": subject, "category": fb_category, "rating": fb_rating + 1 if fb_rating is not None else 5, "detail": fb_detail.strip(), "type": "USER_FEEDBACK"}
         st.session_state.feedback_logs.append(fb_entry)
         if sheet_webhook_url:
@@ -228,8 +240,8 @@ with col_sb3:
     
 with st.sidebar.expander("📚 SGK Điện Tử (Kết Nối Tri Thức)", expanded=False):
     sgk_url = "https://www.vniteach.com/sach-dien-tu-ket-noi-tri-thuc/"
-    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={sgk_url}", use_container_width=True)
-    st.link_button("🌐 Mở sách điện tử ngay", sgk_url, use_container_width=True)
+    st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(sgk_url, safe='')}", width="stretch")
+    st.link_button("🌐 Mở sách điện tử ngay", sgk_url, width="stretch")
 
 st.sidebar.info("💡 **Triết lý:** Dưỡng thiện tâm - Ươm nhân tài • Dẫn dắt tư duy tự học!")
 
@@ -254,7 +266,7 @@ def call_gemini_with_fallback(prompt_or_contents, system_instruction=None, json_
             for current_key in active_keys_pool:
                 try:
                     client = genai.Client(api_key=current_key)
-                    cfg = types.GenerateContentConfig()
+                    cfg = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_level="low"))
                     if system_instruction: cfg.system_instruction = system_instruction
                     if json_mode: cfg.response_mime_type = "application/json"
                     response = client.models.generate_content(model=current_model, contents=prompt_or_contents, config=cfg)
@@ -293,7 +305,7 @@ def render_mermaid(code: str):
     if not safe_code.startswith(("graph", "flowchart")):
         safe_code = "graph LR\n" + safe_code
 
-    json_code_str = json.dumps(safe_code)
+    json_code_str = json.dumps(safe_code).replace("</", "<\\/")
 
     html_template = """
     <div style="background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); border-radius: 14px; border: 1.5px solid #1e293b; padding: 12px; position: relative; font-family: system-ui, -apple-system, sans-serif;">
@@ -315,13 +327,13 @@ def render_mermaid(code: str):
     function parseNodePart(part) {
         if (!part) return null;
         part = part.trim().split(':::')[0].trim();
-        const openIdx = part.search(/[\(\[\{]/);
+        const openIdx = part.search(/[\\(\\[\\{]/);
         if (openIdx === -1) {
             return { id: part, label: null };
         }
         const id = part.substring(0, openIdx).trim();
         let label = part.substring(openIdx).trim();
-        label = label.replace(/^[\(\[\{]+["']?/, '').replace(/["']?[\)\]\}]+$/, '').trim();
+        label = label.replace(/^[\\(\\[\\{]+["']?/, '').replace(/["']?[\\)\\]\\}]+$/, '').trim();
         return { id: id, label: label || id };
     }
 
@@ -553,7 +565,10 @@ def render_mermaid(code: str):
     """
 
     final_html = html_template.replace("___JSON_CODE_PLACEHOLDER___", json_code_str)
-    components.html(final_html, height=560, scrolling=False)
+    if hasattr(st, "iframe"):
+        st.iframe(final_html, height=560)
+    else:
+        components.html(final_html, height=560, scrolling=False)
 
 def setup_pedagogical_oxy(fig, x_range, y_range):
     x_min, x_max = x_range
@@ -578,14 +593,62 @@ def setup_pedagogical_oxy(fig, x_range, y_range):
         showlegend=False
     )
 
+
+# ==============================================================================
+# BỘ LỌC AN TOÀN: chỉ cho phép biểu thức toán học / mã vẽ Plotly do AI sinh ra
+# ==============================================================================
+_SAFE_NAMES = {"x", "np", "math", "pi", "e", "abs", "min", "max", "pow", "round", "float", "int"}
+_SAFE_CALL_ROOTS = {"np", "math"}
+
+def _check_math_ast(node):
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name) and n.id not in _SAFE_NAMES:
+            raise ValueError(f"Tên không được phép: {n.id}")
+        if isinstance(n, ast.Attribute):
+            if n.attr.startswith("_"):
+                raise ValueError("Thuộc tính không được phép")
+            root = n
+            while isinstance(root, ast.Attribute):
+                root = root.value
+            if not (isinstance(root, ast.Name) and root.id in _SAFE_CALL_ROOTS):
+                raise ValueError("Chỉ cho phép np.* và math.*")
+        if isinstance(n, (ast.Lambda, ast.Subscript, ast.Starred, ast.comprehension, ast.NamedExpr)) and not isinstance(n, ast.Subscript):
+            raise ValueError("Cấu trúc không được phép")
+
+def safe_eval_func(expr, x_val):
+    tree = ast.parse(expr.strip(), mode="eval")
+    _check_math_ast(tree)
+    env = {"__builtins__": {}, "x": x_val, "np": np, "math": math, "pi": math.pi, "e": math.e,
+           "abs": abs, "min": min, "max": max, "pow": pow, "round": round, "float": float, "int": int}
+    return eval(compile(tree, "<ham_so>", "eval"), env)
+
+_BLOCKED_NAMES = {"exec", "eval", "compile", "open", "input", "globals", "locals", "vars", "getattr",
+                  "setattr", "delattr", "__import__", "os", "sys", "subprocess", "st", "builtins",
+                  "importlib", "socket", "requests", "shutil", "pathlib"}
+_SAFE_BUILTINS = {k: __builtins__[k] if isinstance(__builtins__, dict) else getattr(__builtins__, k)
+                  for k in ["range", "len", "min", "max", "abs", "sum", "round", "float", "int", "list", "dict",
+                            "tuple", "zip", "enumerate", "str", "pow", "sorted", "bool", "map", "any", "all",
+                            "set", "reversed", "isinstance", "True", "False", "None"]}
+
 def render_dynamic_python_lab(python_code: str):
     try:
         clean_code = re.sub(r'st\.plotly_chart\(.*?\)', '', python_code)
-        local_env = {"go": go, "np": np, "st": st, "math": math, "setup_pedagogical_oxy": setup_pedagogical_oxy}
-        exec(clean_code, local_env)
+        # go, np, math đã được cấp sẵn nên bỏ các dòng import do AI viết
+        clean_code = re.sub(r'(?m)^\s*(?:import|from)\s+.*$', '', clean_code)
+        tree = ast.parse(clean_code)
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Name) and (n.id in _BLOCKED_NAMES or n.id.startswith("__")):
+                raise ValueError(f"Mã mô phỏng dùng tên bị cấm: {n.id}")
+            if isinstance(n, ast.Attribute) and n.attr.startswith("_"):
+                raise ValueError("Mã mô phỏng dùng thuộc tính bị cấm")
+            if isinstance(n, (ast.Import, ast.ImportFrom)):
+                raise ValueError("Không cho phép import trong mã mô phỏng")
+        local_env = {"__builtins__": _SAFE_BUILTINS, "go": go, "np": np, "math": math,
+                     "setup_pedagogical_oxy": setup_pedagogical_oxy}
+        exec(compile(tree, "<mo_phong>", "exec"), local_env)
         if "fig" in local_env and isinstance(local_env["fig"], go.Figure):
             unique_plot_id = f"dynamic_plot_{int(time.time() * 1000)}_{random.randint(1, 1000)}"
-            st.plotly_chart(local_env["fig"], use_container_width=True, key=unique_plot_id)
+            st.plotly_chart(local_env["fig"], width="stretch", key=unique_plot_id)
     except Exception as e:
         st.error(f"Lỗi biên dịch mô phỏng nâng cao: {e}")
 
@@ -604,10 +667,11 @@ def render_smart_lab(data):
         clean_f = re.sub(r'\\frac{(.*?)}{(.*?)}', r'((\1)/(\2))', func_str)
         clean_f = clean_f.replace('\\sin', 'np.sin').replace('\\cos', 'np.cos').replace('\\tan', 'np.tan')
         clean_f = clean_f.replace('\\ln', 'np.log').replace('\\pi', 'np.pi')
-        clean_f = re.sub(r'e\^\{?(.*?)\}?', r'np.exp(\1)', clean_f)
+        clean_f = re.sub(r'\be\^\{([^{}]*)\}', r'np.exp(\1)', clean_f)
+        clean_f = re.sub(r'\be\^(\([^()]*\)|[\w\.]+)', r'np.exp(\1)', clean_f)
         
         clean_f = clean_f.replace('^', '**').replace('y=', '').replace('f(x)=', '').strip()
-        clean_f = re.sub(r'(\d)\s*([a-zA-Z\(])', r'\1*\2', clean_f)
+        clean_f = re.sub(r'(?<![\w.])(\d+(?:\.\d+)?)\s*([a-zA-Z\(])', r'\1*\2', clean_f)
         clean_f = re.sub(r'(\))\s*([a-zA-Z0-9\(])', r'\1*\2', clean_f)
         clean_f = clean_f.replace('{', '(').replace('}', ')')
         
@@ -628,9 +692,9 @@ def render_smart_lab(data):
 
             try:
                 x_area = np.linspace(sa, sb, 400)
-                y_area = eval(clean_f, {"x": x_area, "np": np, "math": math})
+                y_area = safe_eval_func(clean_f, x_area)
                 if isinstance(y_area, (int, float)): y_area = np.full_like(x_area, float(y_area))
-                area_val = np.trapezoid(np.abs(y_area), x_area)
+                area_val = _trapz(np.abs(y_area), x_area)
                 st.success(f"📐 **Diện tích (S):**\n\n$$S = \\int_{{{sa}}}^{{{sb}}} |{math_str}| dx \\approx {abs(area_val):.2f}$$")
             except Exception:
                 pass
@@ -640,12 +704,12 @@ def render_smart_lab(data):
                 fig_area = go.Figure()
                 
                 x_full = np.linspace(sa - 3, sb + 3, 600)
-                y_full = eval(clean_f, {"x": x_full, "np": np, "math": math})
+                y_full = safe_eval_func(clean_f, x_full)
                 if isinstance(y_full, (int, float)): y_full = np.full_like(x_full, float(y_full))
                 
                 fig_area.add_trace(go.Scatter(x=x_full, y=y_full, mode='lines', line=dict(color='#38bdf8', width=3), name='Đồ thị hàm số'))
                 
-                y_area_fill = eval(clean_f, {"x": x_area, "np": np, "math": math})
+                y_area_fill = safe_eval_func(clean_f, x_area)
                 if isinstance(y_area_fill, (int, float)): y_area_fill = np.full_like(x_area, float(y_area_fill))
                 
                 fig_area.add_trace(go.Scatter(x=np.concatenate([x_area, x_area[::-1]]), 
@@ -660,14 +724,14 @@ def render_smart_lab(data):
                 if y_min > 0: y_min = -y_pad
                 if y_max < 0: y_max = y_pad
 
-                y_sa = eval(clean_f, {"x": sa, "np": np, "math": math})
-                y_sb = eval(clean_f, {"x": sb, "np": np, "math": math})
+                y_sa = safe_eval_func(clean_f, sa)
+                y_sb = safe_eval_func(clean_f, sb)
                 fig_area.add_trace(go.Scatter(x=[sa, sa], y=[0, float(y_sa)], mode='lines', line=dict(color='#f59e0b', width=2, dash='dash'), name='Cận a'))
                 fig_area.add_trace(go.Scatter(x=[sb, sb], y=[0, float(y_sb)], mode='lines', line=dict(color='#10b981', width=2, dash='dash'), name='Cận b'))
                 
                 setup_pedagogical_oxy(fig_area, [min(x_full), max(x_full)], [y_min, y_max])
                 fig_area.update_layout(title="Mô phỏng Diện tích hình phẳng (Tích phân)", height=500, showlegend=True)
-                st.plotly_chart(fig_area, use_container_width=True)
+                st.plotly_chart(fig_area, width="stretch")
             except Exception as err:
                 st.error(f"Lỗi vẽ đồ thị diện tích: {err}")
         return
@@ -678,10 +742,11 @@ def render_smart_lab(data):
         clean_f = re.sub(r'\\frac{(.*?)}{(.*?)}', r'((\1)/(\2))', func_str)
         clean_f = clean_f.replace('\\sin', 'np.sin').replace('\\cos', 'np.cos').replace('\\tan', 'np.tan')
         clean_f = clean_f.replace('\\ln', 'np.log').replace('\\pi', 'np.pi')
-        clean_f = re.sub(r'e\^\{?(.*?)\}?', r'np.exp(\1)', clean_f)
+        clean_f = re.sub(r'\be\^\{([^{}]*)\}', r'np.exp(\1)', clean_f)
+        clean_f = re.sub(r'\be\^(\([^()]*\)|[\w\.]+)', r'np.exp(\1)', clean_f)
         
         clean_f = clean_f.replace('^', '**').replace('y=', '').replace('f(x)=', '').strip()
-        clean_f = re.sub(r'(\d)\s*([a-zA-Z\(])', r'\1*\2', clean_f)
+        clean_f = re.sub(r'(?<![\w.])(\d+(?:\.\d+)?)\s*([a-zA-Z\(])', r'\1*\2', clean_f)
         clean_f = re.sub(r'(\))\s*([a-zA-Z0-9\(])', r'\1*\2', clean_f)
         clean_f = clean_f.replace('{', '(').replace('}', ')')
 
@@ -703,9 +768,9 @@ def render_smart_lab(data):
 
             try:
                 x_num = np.linspace(sa, sb, 400)
-                y_num = eval(clean_f, {"x": x_num, "np": np, "math": math})
+                y_num = safe_eval_func(clean_f, x_num)
                 if isinstance(y_num, (int, float)): y_num = np.full_like(x_num, float(y_num))
-                vol_val = np.trapezoid(y_num**2, x_num) * np.pi
+                vol_val = _trapz(y_num**2, x_num) * np.pi
                 st.success(f"📐 **Thể tích khối tròn xoay:**\n\n$$V = \\pi \\int_{{{sa}}}^{{{sb}}} [{math_str}]^2 dx \\approx {abs(vol_val):.2f}\\text{{ (đvtt)}}$$")
             except Exception:
                 pass
@@ -716,7 +781,7 @@ def render_smart_lab(data):
                 v = np.linspace(0, np.radians(angle_deg), 60)
                 U, V = np.meshgrid(u, v)
 
-                R = eval(clean_f, {"x": U, "np": np, "math": math})
+                R = safe_eval_func(clean_f, U)
                 if isinstance(R, (int, float)): R = np.full_like(U, float(R))
 
                 X_3d = U
@@ -729,7 +794,7 @@ def render_smart_lab(data):
                 ox_min, ox_max = min(sa - 1.5, -2), max(sb + 1.5, 2)
                 fig_3d.add_trace(go.Scatter3d(x=[ox_min, ox_max], y=[0, 0], z=[0, 0], mode='lines+text', line=dict(color='#ffffff', width=4), text=["", "Trục Ox"], textposition="top right", name="Trục Ox"))
 
-                y_gen = eval(clean_f, {"x": u, "np": np, "math": math})
+                y_gen = safe_eval_func(clean_f, u)
                 if isinstance(y_gen, (int, float)): y_gen = np.full_like(u, float(y_gen))
                 fig_3d.add_trace(go.Scatter3d(x=u, y=y_gen, z=np.zeros_like(u), mode='lines', line=dict(color='#f43f5e', width=5), name='Đường sinh y=f(x)'))
 
@@ -745,7 +810,7 @@ def render_smart_lab(data):
                     height=520,
                     margin=dict(l=10, r=10, t=35, b=10)
                 )
-                st.plotly_chart(fig_3d, use_container_width=True)
+                st.plotly_chart(fig_3d, width="stretch")
             except Exception as err:
                 st.error(f"Lỗi tính toán mô phỏng 3D: {err}")
         return
@@ -777,7 +842,7 @@ def render_smart_lab(data):
             
             setup_pedagogical_oxy(fig, [-6, 6], [y_min, y_max])
             fig.update_layout(title="Đồ thị Hàm số Bậc 3", height=500)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     elif dtype == "func_1_1":
         c1, c2 = st.columns([1.2, 2.8])
@@ -807,7 +872,7 @@ def render_smart_lab(data):
             fig.add_trace(go.Scatter(x=[-7, 7], y=[y_tc_ngang, y_tc_ngang], mode='lines', line=dict(color='#10b981', width=1.8, dash='dash'), name='TC Ngang'))
             setup_pedagogical_oxy(fig, [-7, 7], [-8, 8])
             fig.update_layout(title="Đồ thị Hàm phân thức Bậc 1 / Bậc 1 (Kèm Tiệm cận)", height=500)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     elif dtype == "func_2_1":
         c1, c2 = st.columns([1.2, 2.8])
@@ -843,7 +908,7 @@ def render_smart_lab(data):
             fig.add_trace(go.Scatter(x=x_slant, y=y_slant, mode='lines', line=dict(color='#ec4899', width=1.8, dash='dash'), name='TC Xiên'))
             setup_pedagogical_oxy(fig, [-7, 7], [-10, 10])
             fig.update_layout(title="Đồ thị Hàm phân thức Bậc 2 / Bậc 1 (Kèm Tiệm cận xiên)", height=500)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     elif dtype in ["parabola", "func_2"]:
         c1, c2 = st.columns([1.2, 2.8])
@@ -870,7 +935,7 @@ def render_smart_lab(data):
             
             setup_pedagogical_oxy(fig, [-6, 6], [y_min, y_max])
             fig.update_layout(title="Đồ thị Parabol Bậc 2 (Toán Lớp 10)", height=500)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     elif dtype == "oxyz":
         c1, c2 = st.columns([1, 3])
@@ -896,7 +961,7 @@ def render_smart_lab(data):
                 height=500,
                 margin=dict(l=10, r=10, t=30, b=10)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     else:
         st.info("💡 Đã tiếp nhận yêu cầu. Kéo thanh trượt hoặc nhập tham số để mô phỏng tương tác!")
@@ -1061,7 +1126,7 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
         st.session_state.tram1_count += 1
         with st.spinner("AI đang phân tích ngữ cảnh liên môn và dựng mô hình..."):
             
-            context_text = st.session_state.current_lesson if st.session_state.get("current_lesson") else "Không có ngữ cảnh bài học trước đó."
+            context_text = st.session_state.current_lesson[:2500] if st.session_state.get("current_lesson") else "Không có ngữ cảnh bài học trước đó."
             
             lab_prompt = f"""[HỆ TRI THỨC SƯ PHẠM QUỐC GIA - CHUẨN CT GDPT 2018 & QUY CHẾ THI 2026 (Cập nhật QĐ 764/QĐ-BGDĐT & TT 13/2026/TT-BGDĐT)]
 Môn học: {subject} | Khối lớp: {grade_num}. 
@@ -1107,6 +1172,7 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
                 elif raw_json.startswith("```"): raw_json = raw_json[3:-3].strip()
                 st.session_state.lab_data = json.loads(raw_json)
             except Exception:
+                st.warning("⚠️ AI trả về định dạng chưa chuẩn nên hệ thống hiển thị đồ thị mẫu. Em thử diễn đạt lại yêu cầu rõ hơn nhé!")
                 st.session_state.lab_data = {"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}
 
     if st.session_state.get("lab_data"):
@@ -1159,7 +1225,7 @@ Cuối phản hồi PHẢI có khối JSON:
 
     uploaded_file = st.file_uploader("📸 Tải ảnh bài làm (JPG, PNG)", type=["jpg", "png", "jpeg"])
     if uploaded_file:
-        st.image(Image.open(uploaded_file), caption="Bài làm của em", use_container_width=True)
+        st.image(Image.open(uploaded_file), caption="Bài làm của em", width="stretch")
         if st.button("🚀 Bắt đầu nhận xét"):
             st.session_state.tram2_count += 1
             with st.spinner(f"Thầy đang đối chiếu chuẩn kiến thức SGK KNTT Lớp {grade_num} và soi từng bước làm của {student_name}..."):
@@ -1581,7 +1647,7 @@ with tab3:
                                                               font=dict(color='#c084fc', size=10), showlegend=False))
                             setup_pedagogical_oxy(fig_mini, [x_min, x_max], [y_min, y_max])
                             fig_mini.update_layout(height=240, margin=dict(l=10, r=10, t=10, b=10))
-                            st.plotly_chart(fig_mini, use_container_width=True)
+                            st.plotly_chart(fig_mini, width="stretch")
 
                         elif dtype == "func_1_1":
                             fa, fb = float(f_data.get("a", 0)), float(f_data.get("b", 0))
@@ -1612,7 +1678,7 @@ with tab3:
                                 
                                 setup_pedagogical_oxy(fig_mini, [x_min, x_max], [y_min, y_max])
                                 fig_mini.update_layout(height=240, margin=dict(l=10, r=10, t=10, b=10))
-                                st.plotly_chart(fig_mini, use_container_width=True)
+                                st.plotly_chart(fig_mini, width="stretch")
 
                         elif dtype == "func_2_1":
                             fa, fb, fc = float(f_data.get("a", 0)), float(f_data.get("b", 0)), float(f_data.get("c", 0))
@@ -1645,7 +1711,7 @@ with tab3:
                                 
                                 setup_pedagogical_oxy(fig_mini, [x_min, x_max], [y_min, y_max])
                                 fig_mini.update_layout(height=240, margin=dict(l=10, r=10, t=10, b=10))
-                                st.plotly_chart(fig_mini, use_container_width=True)
+                                st.plotly_chart(fig_mini, width="stretch")
 
                         elif dtype == "parabola":
                             fa, fb, fc = float(f_data.get("a", 0)), float(f_data.get("b", 0)), float(f_data.get("c", 0))
@@ -1661,7 +1727,7 @@ with tab3:
                                 fig_mini.add_trace(go.Scatter(x=[x_dinh], y=[y_dinh], mode='markers+text', marker=dict(size=6, color='gold'), text=[f'I({fmt_c(x_dinh)};{fmt_c(y_dinh)})'], textposition="top center", font=dict(size=11, color='gold'), showlegend=False))
                                 setup_pedagogical_oxy(fig_mini, [x_min, x_max], [y_min, y_max])
                                 fig_mini.update_layout(height=240, margin=dict(l=10, r=10, t=10, b=10))
-                                st.plotly_chart(fig_mini, use_container_width=True)
+                                st.plotly_chart(fig_mini, width="stretch")
                     except Exception:
                         pass
             elif isinstance(f_data, str) and f_data.strip():
@@ -1953,7 +2019,7 @@ RÀO CHẮN THÉP PHÁP LÝ & HỌC THUẬT (BỘ SÁCH KẾT NỐI TRI THỨC V
                     st.session_state.exam_answers[f"p3_{idx}"] = st.text_input("Đáp án:", key=f"p3_{idx}")
                     st.markdown("---")
 
-        if st.button("🏁 NỘP BÀI KHẢO THÍ & CHẤM ĐIỂM", use_container_width=True):
+        if st.button("🏁 NỘP BÀI KHẢO THÍ & CHẤM ĐIỂM", width="stretch"):
             st.session_state.exam_state = "result"
             st.rerun()
 
@@ -2278,8 +2344,11 @@ with tab4:
         with col_pwd1:
             pwd_input = st.text_input("Nhập mã bí mật:", type="password", key="tab4_pwd_box", placeholder="Nhập mật khẩu quản trị...", label_visibility="collapsed")
         with col_pwd2:
-            if st.button("🔓 Mở khóa Trạm 4", use_container_width=True):
-                if pwd_input == st.secrets["ADMIN_PASS"]:
+            if st.button("🔓 Mở khóa Trạm 4", width="stretch"):
+                admin_pass = str(get_secret("ADMIN_PASS", ""))
+                if not admin_pass:
+                    st.error("⚠️ Quản trị viên chưa cài đặt ADMIN_PASS trong Secrets!")
+                elif __import__("hmac").compare_digest(pwd_input.encode(), admin_pass.encode()):
                     st.session_state.tab4_authenticated = True
                     st.rerun()
                 else:
@@ -2290,7 +2359,7 @@ with tab4:
     with col_t4_h1:
         st.caption("Minh chứng khoa học độc lập phục vụ cuộc thi KHKT: Thống kê định lượng, đối chứng Paired t-Test, Effect Size và cơ sở dữ liệu thời gian thực.")
     with col_t4_h2:
-        if st.button("🔒 Khóa Trạm 4", key="lock_tab4_btn", use_container_width=True):
+        if st.button("🔒 Khóa Trạm 4", key="lock_tab4_btn", width="stretch"):
             st.session_state.tab4_authenticated = False
             st.rerun()
 
@@ -2321,14 +2390,14 @@ with tab4:
                                      labels={col_subject: 'Môn học', 'score_val': 'Điểm TB (Thang 10)'},
                                      color='score_val', color_continuous_scale='Viridis')
                     fig_bar.update_layout(template="plotly_dark", height=300, margin=dict(l=10, r=10, t=40, b=10))
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                    st.plotly_chart(fig_bar, width="stretch")
                     
                 with c_chart2:
                     exam_count_by_sub = df_exams[col_subject].value_counts().reset_index()
                     exam_count_by_sub.columns = [col_subject, 'count']
                     fig_pie = px.pie(exam_count_by_sub, values='count', names=col_subject, title="Tỷ trọng Học sinh làm bài theo Môn")
                     fig_pie.update_layout(template="plotly_dark", height=300, margin=dict(l=10, r=10, t=40, b=10))
-                    st.plotly_chart(fig_pie, use_container_width=True)
+                    st.plotly_chart(fig_pie, width="stretch")
 
     # 1. TỔNG QUAN ĐỊNH LƯỢNG HÀNH TRÌNH HỌC TẬP
     st.markdown("---")
@@ -2358,7 +2427,7 @@ with tab4:
         )
         sample_size = st.slider("Cỡ mẫu thực nghiệm (N học sinh):", min_value=15, max_value=100, value=35, step=5)
         
-        if st.button("🧪 Chạy Kiểm Định Thống Kê (Run Analytics)", use_container_width=True):
+        if st.button("🧪 Chạy Kiểm Định Thống Kê (Run Analytics)", width="stretch"):
             st.session_state.run_ttest = True
 
     with c_stat2:
@@ -2380,7 +2449,7 @@ with tab4:
                 actual_n = len(post_scores)
             else:
                 if "Dữ liệu thực tế" in data_source:
-                    st.caption("*(Chưa đủ số bài thi thực tế $\ge 5$, tự động chuyển sang mẫu chuẩn)*")
+                    st.caption("*(Chưa đủ số bài thi thực tế $\\ge 5$, tự động chuyển sang mẫu chuẩn)*")
                 actual_n = sample_size
                 pre_scores = np.clip(np.random.normal(loc=5.6, scale=1.35, size=actual_n), 2.0, 9.5)
                 post_scores = np.clip(pre_scores + np.random.normal(loc=1.85, scale=0.55, size=actual_n), 4.5, 10.0)
@@ -2416,14 +2485,14 @@ with tab4:
                                           mode='lines', name='Sau can thiệp (Post-test)', line=dict(color='#34d399', width=3)))
             fig_stat.update_layout(title="Phổ phân phối Gauss: Sự chuyển dịch năng lực học tập", 
                                    xaxis_title="Thang điểm 10", yaxis_title="Mật độ xác suất", template="plotly_dark", height=320, margin=dict(l=20, r=20, t=35, b=20))
-            st.plotly_chart(fig_stat, use_container_width=True)
+            st.plotly_chart(fig_stat, width="stretch")
 
             with st.expander("🗣️ HƯỚNG DẪN BÌNH DÂN HỌC VỤ: CÁCH GIẢI TRÌNH CÁC CON SỐ CHO BAN GIÁM KHẢO", expanded=True):
                 st.markdown(f"""
                 *Khi Ban Giám khảo hỏi về ý nghĩa khoa học của số liệu, học sinh tự tin trình bày 4 luận điểm đắt giá:*
                 1. **Về Điểm trung bình (Mean: tăng từ {mean_pre:.2f} lên {mean_post:.2f}):** Chứng minh học sinh tiến bộ thực chất **+{mean_diff:.2f} điểm** nhờ phương pháp tự học và gợi mở Socratic.
                 2. **Về Độ lệch chuẩn (SD: giảm từ {std_pre:.2f} xuống {std_post:.2f}):** Độ phân tán giảm đi rõ rệt, chứng minh app **kéo đáy thành công các học sinh yếu kém**, giúp học lực cả lớp đồng đều hơn.
-                3. **Về Mức ý nghĩa ($p = {p_val:.2e} < 0.001$):** Đạt độ tin cậy $99.9\%$, khẳng định kết quả tiến bộ là do Hệ sinh thái AI mang lại, không phải do ngẫu nhiên may rủi.
+                3. **Về Mức ý nghĩa ($p = {p_val:.2e} < 0.001$):** Đạt độ tin cậy $99.9\\%$, khẳng định kết quả tiến bộ là do Hệ sinh thái AI mang lại, không phải do ngẫu nhiên may rủi.
                 4. **Về Quy mô ảnh hưởng (Cohen's $d = {cohen_d:.2f} > 0.8$):** Theo quy chuẩn thống kê giáo dục quốc tế, $d > 0.8$ được xếp vào mức độ **Tác động cực kỳ mạnh mẽ (Large Effect Size)**.
                 """)
 
@@ -2435,12 +2504,12 @@ with tab4:
     with tab_log1:
         if st.session_state.get("global_logs"):
             df_global = pd.DataFrame(st.session_state.global_logs)
-            st.dataframe(df_global, use_container_width=True)
+            st.dataframe(df_global, width="stretch")
             csv_data = df_global.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Xuất TOÀN BỘ dữ liệu (CSV)", data=csv_data, file_name=f"KHKT_Analytics_Total_{datetime.now(VN_TZ).strftime('%Y%m%d')}.csv", mime="text/csv")
         elif st.session_state.get("analytics_logs"):
             df_analytics = pd.DataFrame(st.session_state["analytics_logs"])
-            st.dataframe(df_analytics, use_container_width=True)
+            st.dataframe(df_analytics, width="stretch")
             csv_data = df_analytics.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Xuất dữ liệu phiên hiện tại (CSV)", data=csv_data, file_name=f"KHKT_Analytics_{datetime.now(VN_TZ).strftime('%Y%m%d')}.csv", mime="text/csv")
         else:
@@ -2451,7 +2520,7 @@ with tab4:
             st.success("🟢 Webhook Google Sheets đang kết nối liên tục!")
             st.caption("Dữ liệu tự động đẩy về máy chủ bảng tính của nhà trường theo thời gian thực (Giờ Việt Nam GMT+7).")
             if "docs.google.com" in sheet_view_url:
-                st.link_button("📊 Mở trực tiếp Google Sheets nguồn trên trình duyệt", sheet_view_url, use_container_width=True)
+                st.link_button("📊 Mở trực tiếp Google Sheets nguồn trên trình duyệt", sheet_view_url, width="stretch")
             else:
                 st.warning("⚠️ Vui lòng thêm biến GOOGLE_SHEET_VIEW_URL (Link Google Sheets gốc) vào Streamlit Secrets để nút mở trực tiếp xuất hiện.")
         else:
@@ -2463,9 +2532,9 @@ with tab4:
     
     c_btn1, c_btn2 = st.columns(2)
     with c_btn1:
-        run_ai_report = st.button("🧠 Phân tích Dữ liệu Sư phạm chung", use_container_width=True)
+        run_ai_report = st.button("🧠 Phân tích Dữ liệu Sư phạm chung", width="stretch")
     with c_btn2:
-        run_va_loi = st.button("🔧 Kích hoạt AI Tự động Vá lỗi (Cá nhân hóa)", use_container_width=True)
+        run_va_loi = st.button("🔧 Kích hoạt AI Tự động Vá lỗi (Cá nhân hóa)", width="stretch")
 
     if run_ai_report:
         with st.spinner("AI đang tính toán ma trận tương quan và chẩn đoán hành vi học tập toàn hệ thống..."):
