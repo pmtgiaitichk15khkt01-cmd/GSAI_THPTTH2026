@@ -1596,20 +1596,41 @@ with tab3:
         if not isinstance(exam, dict): return exam
         for p_key in ["p1", "p2", "p3"]:
             for q in exam.get(p_key, []):
-                q_text = str(q.get("q", "")).lower()
-                if ("bảng biến thiên" in q_text or "bbt" in q_text) and not q.get("bbt"):
+                q_text = str(q.get("q", ""))
+                q_lower = q_text.lower()
+                
+                # Làm sạch nội dung câu hỏi nếu AI chèn chuỗi mô tả BBT thô dạng text vào q
+                if "bảng biến thiên như sau:" in q_text and ("chạy từ" in q_text or "mang dấu" in q_text or "tăng từ" in q_text):
+                    parts = q_text.split("bảng biến thiên như sau:")
+                    lead = parts[0].strip() + " có bảng biến thiên như sau:"
+                    tail = parts[1].strip()
+                    match_ask = re.search(r'([A-ZÀ-Ỹ][^\.\n]*?(?:Có bao nhiêu|Hàm số|Tìm|Điểm|Mệnh đề|Khẳng định|Giá trị|Tập hợp)[^\.\n]*?\?.*)$', tail, re.DOTALL)
+                    if match_ask:
+                        q["q"] = f"{lead} {match_ask.group(1).strip()}"
+                    elif "." in tail:
+                        sub_s = [s.strip() for s in tail.split(".") if s.strip()]
+                        if len(sub_s) >= 2:
+                            q["q"] = f"{lead} {sub_s[-1]}."
                     q["bbt"] = "x | -inf | -1 | 1 | +inf\ny' | | + | 0 | - | 0 | +\ny | -inf | ↗ | 2 | ↘ | -2 | ↗ | +inf"
-                if ("ghép nhóm" in q_text or "mẫu số liệu" in q_text) and not q.get("mslgn_data"):
+
+                if ("bảng biến thiên" in q_lower or "bbt" in q_lower) and not q.get("bbt"):
+                    q["bbt"] = "x | -inf | -1 | 1 | +inf\ny' | | + | 0 | - | 0 | +\ny | -inf | ↗ | 2 | ↘ | -2 | ↗ | +inf"
+                
+                if ("parabol" in q_lower or "đạo hàm" in q_lower) and ("đỉnh" in q_lower or "cắt trục" in q_lower) and not q.get("f"):
+                    q["f"] = {"type": "parabola_fprime", "a": 1, "b": -2, "c": -3, "vertex": [1, -4], "roots": [-1, 3]}
+                elif ("đồ thị" in q_lower or "hình vẽ" in q_lower or "như hình" in q_lower) and not q.get("f") and not q.get("bbt"):
+                    q["f"] = {"type": "func_3", "a": 1, "b": 0, "c": -3, "d": 2}
+
+                if ("ghép nhóm" in q_lower or "mẫu số liệu" in q_lower) and not q.get("mslgn_data"):
                     q["mslgn_data"] = {
                         "title": "Mẫu số liệu ghép nhóm khảo sát thực tế:",
                         "groups": ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"],
                         "freq": [5, 12, 18, 10, 5]
                     }
-                if ("đồ thị" in q_text or "hình vẽ" in q_text or "như hình" in q_text) and not q.get("f") and not q.get("bbt"):
-                    q["f"] = {"type": "func_3", "a": 1, "b": 0, "c": -3, "d": 2}
+
                 if not q.get("explain") or len(str(q.get("explain")).strip()) < 10:
                     ans_val = q.get("ans", "")
-                    q["explain"] = f"Phân tích bản chất sư phạm SGK Kết Nối Tri Thức: Nhận dạng quy luật, loại trừ các phương án nhiễu sai lầm và áp dụng trực tiếp định lý/tính chất cốt lõi để chọn đáp án chuẩn {ans_val}."
+                    q["explain"] = f"Phân tích bản chất sư phạm SGK Kết Nối Tri Thức: Nhận dạng cấu trúc, loại trừ các phương án nhiễu sai lầm và áp dụng trực tiếp định lý/tính chất cốt lõi để chọn đáp án chuẩn {ans_val}."
         return exam
 
     def render_fast_visual(q):
@@ -1680,12 +1701,19 @@ with tab3:
                             yv = fa*xv**3 + fb*xv**2 + fc*xv + fd
                             fig_mini.add_trace(go.Scatter(x=xv, y=yv, mode='lines', line=dict(color='#38bdf8', width=2.5), name='y = f(x)'))
                             setup_pedagogical_oxy(fig_mini, [-3.5, 3.5], [min(yv)-1, max(yv)+1])
-                        elif dtype == "parabola":
-                            fa, fb, fc = float(f_data.get("a", 1)), float(f_data.get("b", -2)), float(f_data.get("c", 1))
-                            xv = np.linspace(-3.5, 3.5, 300)
+                        elif dtype in ["parabola", "parabola_fprime"]:
+                            fa, fb, fc = float(f_data.get("a", 1)), float(f_data.get("b", -2)), float(f_data.get("c", -3 if dtype=="parabola_fprime" else 1))
+                            xv = np.linspace(-2.5, 4.5, 300)
                             yv = fa*xv**2 + fb*xv + fc
-                            fig_mini.add_trace(go.Scatter(x=xv, y=yv, mode='lines', line=dict(color='#38bdf8', width=2.5), name='y = f(x)'))
-                            setup_pedagogical_oxy(fig_mini, [-3.5, 3.5], [min(yv)-1, max(yv)+1])
+                            curve_lbl = "y = f'(x)" if dtype == "parabola_fprime" else "y = f(x)"
+                            fig_mini.add_trace(go.Scatter(x=xv, y=yv, mode='lines', line=dict(color='#38bdf8', width=2.5), name=curve_lbl))
+                            if dtype == "parabola_fprime":
+                                fig_mini.add_trace(go.Scatter(x=[1, -1, 3], y=[-4, 0, 0], mode='markers+text', 
+                                    text=['I(1;-4)', 'x=-1', 'x=3'], textposition=['bottom right', 'top left', 'top right'],
+                                    marker=dict(color='#f43f5e', size=8), name='Điểm đặc biệt'))
+                                setup_pedagogical_oxy(fig_mini, [-2.5, 4.5], [-5.5, 4])
+                            else:
+                                setup_pedagogical_oxy(fig_mini, [-3.5, 3.5], [min(yv)-1, max(yv)+1])
                         fig_mini.update_layout(height=260, margin=dict(l=5, r=5, t=20, b=5), template="plotly_dark")
                         st.plotly_chart(fig_mini, width="stretch", key=f"mini_chart_{random.randint(1, 99999)}")
                     except Exception:
@@ -2133,71 +2161,223 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 
         # CHỨC NĂNG XEM TRƯỚC KHI IN (PRINT PREVIEW CHUẨN A4 BỘ GD&ĐT)
         with st.expander("👁️ Xem Trước Bản In Chuẩn A4 Bộ GD&ĐT (Print Preview)", expanded=False):
+            now_vn = datetime.now(VN_TZ)
+            curr_year = now_vn.year
+            acad_year = f"{curr_year}-{curr_year + 1}" if now_vn.month >= 8 else f"{curr_year - 1}-{curr_year}"
+            exam_attempt = max(1, st.session_state.get('tram3_count', 1))
             school_lvl = "THCS" if grade_num <= 9 else "THPT"
             p_time = st.session_state.get('exam_time_mins', 45)
-            
+            ex_code = exam.get('code', st.session_state.exam_code)
+
+            def get_bbt_print_html():
+                return """
+                <div style="text-align:center; margin:8px auto; max-width:480px;">
+                    <table style="width:100%; border-collapse:collapse; border:1.2px solid #000; font-family:'Times New Roman', serif; text-align:center; font-size:13px; line-height:1.4;">
+                        <tr style="border-bottom:1.2px solid #000;">
+                            <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold; width:45px;">$x$</td>
+                            <td style="padding:4px 10px;">$-\\infty$</td>
+                            <td style="padding:4px 10px;"></td>
+                            <td style="padding:4px 10px;">$-1$</td>
+                            <td style="padding:4px 10px;"></td>
+                            <td style="padding:4px 10px;">$1$</td>
+                            <td style="padding:4px 10px;"></td>
+                            <td style="padding:4px 10px;">$+\\infty$</td>
+                        </tr>
+                        <tr style="border-bottom:1.2px solid #000;">
+                            <td style="border-right:1.2px solid #000; padding:4px 8px; font-weight:bold;">$y'$</td>
+                            <td></td>
+                            <td style="padding:3px 8px;">$+$</td>
+                            <td style="padding:3px 8px; font-weight:bold;">$0$</td>
+                            <td style="padding:3px 8px;">$-$</td>
+                            <td style="padding:3px 8px; font-weight:bold;">$0$</td>
+                            <td style="padding:3px 8px;">$+$</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td style="border-right:1.2px solid #000; padding:8px 8px; font-weight:bold; vertical-align:middle;">$y$</td>
+                            <td colspan="7" style="padding:4px 10px;">
+                                <table style="width:100%; border-collapse:collapse; text-align:center; font-size:12.5px;">
+                                    <tr>
+                                        <td style="vertical-align:bottom; width:15%; padding-top:16px;">$-\\infty$</td>
+                                        <td style="vertical-align:middle; width:15%; font-size:16px;">↗</td>
+                                        <td style="vertical-align:top; width:15%; font-weight:bold; padding-bottom:16px;">$2$</td>
+                                        <td style="vertical-align:middle; width:15%; font-size:16px;">↘</td>
+                                        <td style="vertical-align:bottom; width:15%; font-weight:bold; padding-top:16px;">$-2$</td>
+                                        <td style="vertical-align:middle; width:15%; font-size:16px;">↗</td>
+                                        <td style="vertical-align:top; width:15%; padding-bottom:16px;">$+\\infty$</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                """
+
+            def get_mslgn_print_html(ms_data):
+                grs = ms_data.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
+                frs = ms_data.get("freq", [5, 12, 18, 10, 5])
+                return f"""
+                <div style="text-align:center; margin:8px auto; max-width:550px;">
+                    <div style="font-weight:bold; font-size:12.5px; margin-bottom:4px;">{ms_data.get('title', 'Bảng mẫu số liệu ghép nhóm:')}</div>
+                    <table border="1" style="border-collapse:collapse; margin:auto; width:95%; font-family:'Times New Roman', serif; text-align:center; font-size:13px;">
+                        <tr style="background:#f1f5f9; font-weight:bold;">
+                            <td style="padding:4px 8px; width:110px;">Nhóm giá trị</td>
+                            {"".join([f"<td style='padding:4px 8px;'>{g}</td>" for g in grs])}
+                        </tr>
+                        <tr>
+                            <td style="padding:4px 8px; font-weight:bold;">Tần số ($m$)</td>
+                            {"".join([f"<td style='padding:4px 8px;'>{f_val}</td>" for f_val in frs])}
+                        </tr>
+                    </table>
+                </div>
+                """
+
+            def get_plot_print_html(f_data):
+                is_parabola = f_data.get("type") in ["parabola", "parabola_fprime"]
+                curve_d = "M -45 -35 Q 25 75 95 -35" if is_parabola else "M -85 55 Q -40 -65 0 0 T 85 -55"
+                parabola_decor = ""
+                if is_parabola:
+                    parabola_decor = '<text x="-35" y="12" font-size="9" font-family="Times New Roman">-1</text><circle cx="-25" cy="0" r="1.5" fill="#000"/><text x="20" y="12" font-size="9" font-family="Times New Roman">1</text><circle cx="25" cy="0" r="1.5" fill="#000"/><text x="70" y="12" font-size="9" font-family="Times New Roman">3</text><circle cx="75" cy="0" r="1.5" fill="#000"/><line x1="25" y1="0" x2="25" y2="40" stroke="#666" stroke-dasharray="2,2"/><line x1="0" y1="40" x2="25" y2="40" stroke="#666" stroke-dasharray="2,2"/><text x="30" y="44" font-size="9" font-family="Times New Roman">I(1;-4)</text>'
+                return f"""
+                <div style="text-align:center; margin:8px auto;">
+                    <svg width="240" height="150" viewBox="-120 -80 240 160" style="background:#ffffff; border:0.5px solid #cbd5e1; border-radius:4px;">
+                        <defs>
+                            <marker id="arrow_head" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#000"/>
+                            </marker>
+                        </defs>
+                        <line x1="-110" y1="0" x2="110" y2="0" stroke="#000" stroke-width="1.2" marker-end="url(#arrow_head)"/>
+                        <line x1="0" y1="70" x2="0" y2="-70" stroke="#000" stroke-width="1.2" marker-end="url(#arrow_head)"/>
+                        <text x="102" y="14" font-size="11" font-style="italic" font-family="'Times New Roman'">x</text>
+                        <text x="-12" y="-60" font-size="11" font-style="italic" font-family="'Times New Roman'">y</text>
+                        <text x="-9" y="12" font-size="10" font-style="italic" font-family="'Times New Roman'">O</text>
+                        {parabola_decor}
+                        <path d="{curve_d}" fill="none" stroke="#000" stroke-width="1.6"/>
+                    </svg>
+                </div>
+                """
+
             p1_html = ""
             if exam.get("p1"):
-                p1_html += "<div style='font-weight:bold; margin:12px 0 6px 0; font-size:14px;'>PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn.</div>"
+                p1_html += f"<div style='font-weight:bold; margin:14px 0 6px 0; font-size:14px;'>PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn.</div>"
+                p1_html += f"<div style='font-style:italic; font-size:13px; margin-bottom:8px;'>Thí sinh trả lời từ câu 1 đến câu {len(exam['p1'])}. Mỗi câu hỏi thí sinh chỉ chọn một phương án.</div>"
                 for idx, q in enumerate(exam["p1"]):
-                    p1_html += f"<div style='margin-bottom:8px;'><b>Câu {idx+1}.</b> {q.get('q')}</div>"
+                    p1_html += f"<div style='margin-bottom:6px;'><b>Câu {idx+1}.</b> {q.get('q')}</div>"
+                    if q.get("bbt"): p1_html += get_bbt_print_html()
+                    elif q.get("mslgn_data"): p1_html += get_mslgn_print_html(q["mslgn_data"])
+                    elif q.get("f"): p1_html += get_plot_print_html(q["f"])
+                    
                     opts = q.get("opt", [])
                     if opts:
-                        p1_html += "<div style='display:flex; justify-content:space-between; margin-bottom:8px; padding-left:15px;'>"
-                        for o in opts: p1_html += f"<span><b>{o[:2]}</b> {o[3:]}</span>"
-                        p1_html += "</div>"
+                        clean_opts = [re.sub(r'^[A-D]\.\s*', '', str(o)).strip() for o in opts]
+                        max_o_len = max([len(re.sub(r'[\$\\]', '', c)) for c in clean_opts]) if clean_opts else 10
+                        if max_o_len <= 16:
+                            p1_html += "<table style='width:100%; border:none; margin-bottom:8px;'><tr>"
+                            for o_i in range(min(4, len(opts))):
+                                p1_html += f"<td style='width:25%; border:none; padding:2px 4px;'><b>{chr(65+o_i)}.</b> {clean_opts[o_i]}</td>"
+                            p1_html += "</tr></table>"
+                        elif max_o_len <= 36:
+                            p1_html += "<table style='width:100%; border:none; margin-bottom:8px;'>"
+                            p1_html += f"<tr><td style='width:50%; border:none; padding:2px 4px;'><b>A.</b> {clean_opts[0] if len(clean_opts)>0 else ''}</td><td style='width:50%; border:none; padding:2px 4px;'><b>B.</b> {clean_opts[1] if len(clean_opts)>1 else ''}</td></tr>"
+                            p1_html += f"<tr><td style='width:50%; border:none; padding:2px 4px;'><b>C.</b> {clean_opts[2] if len(clean_opts)>2 else ''}</td><td style='width:50%; border:none; padding:2px 4px;'><b>D.</b> {clean_opts[3] if len(clean_opts)>3 else ''}</td></tr>"
+                            p1_html += "</table>"
+                        else:
+                            p1_html += "<div style='margin-bottom:8px; padding-left:14px;'>"
+                            for o_i, o in enumerate(opts):
+                                p1_html += f"<div style='margin-bottom:3px;'><b>{chr(65+o_i)}.</b> {clean_opts[o_i]}</div>"
+                            p1_html += "</div>"
 
             p2_html = ""
             if exam.get("p2"):
-                p2_html += "<div style='font-weight:bold; margin:12px 0 6px 0; font-size:14px;'>PHẦN II. Câu trắc nghiệm đúng sai. Thí sinh trả lời từ câu 1 đến câu 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.</div>"
+                p2_html += f"<div style='font-weight:bold; margin:14px 0 6px 0; font-size:14px;'>PHẦN II. Câu trắc nghiệm đúng sai.</div>"
+                p2_html += f"<div style='font-style:italic; font-size:13px; margin-bottom:8px;'>Thí sinh trả lời từ câu 1 đến câu {len(exam['p2'])}. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.</div>"
                 for idx, q in enumerate(exam["p2"]):
                     p2_html += f"<div style='margin-bottom:6px;'><b>Câu {idx+1}.</b> {q.get('q')}</div>"
+                    if q.get("bbt"): p2_html += get_bbt_print_html()
+                    elif q.get("mslgn_data"): p2_html += get_mslgn_print_html(q["mslgn_data"])
+                    elif q.get("f"): p2_html += get_plot_print_html(q["f"])
                     for s_i, stm in enumerate(q.get("stmts", [])):
                         p2_html += f"<div style='padding-left:18px; margin-bottom:4px;'><b>{chr(97+s_i)})</b> {stm.get('t')} <span style='float:right;'>[ &nbsp; ] Đúng &nbsp;&nbsp;&nbsp; [ &nbsp; ] Sai</span></div>"
 
             p3_html = ""
             if exam.get("p3"):
-                p3_html += "<div style='font-weight:bold; margin:12px 0 6px 0; font-size:14px;'>PHẦN III. Câu trắc nghiệm trả lời ngắn.</div>"
+                p3_html += f"<div style='font-weight:bold; margin:14px 0 6px 0; font-size:14px;'>PHẦN III. Câu trắc nghiệm trả lời ngắn.</div>"
+                p3_html += f"<div style='font-style:italic; font-size:13px; margin-bottom:8px;'>Thí sinh trả lời từ câu 1 đến câu {len(exam['p3'])}.</div>"
                 for idx, q in enumerate(exam["p3"]):
-                    p3_html += f"<div style='margin-bottom:8px;'><b>Câu {idx+1}.</b> {q.get('q')} <span style='float:right; border-bottom:1px solid #000; width:80px; display:inline-block;'></span></div>"
+                    p3_html += f"<div style='margin-bottom:8px;'><b>Câu {idx+1}.</b> {q.get('q')} <span style='float:right; border-bottom:1px solid #000; width:90px; display:inline-block;'></span></div>"
+                    if q.get("bbt"): p3_html += get_bbt_print_html()
+                    elif q.get("mslgn_data"): p3_html += get_mslgn_print_html(q["mslgn_data"])
+                    elif q.get("f"): p3_html += get_plot_print_html(q["f"])
 
-            preview_html = f"""
-            <div style="background:#ffffff; color:#000000; padding:35px 40px; font-family:'Times New Roman', Times, serif; font-size:13.5px; line-height:1.45; border-radius:6px; box-shadow:0 6px 20px rgba(0,0,0,0.5); max-width:850px; margin:auto;">
-                <table style="width:100%; border-collapse:collapse; margin-bottom:10px;">
-                    <tr>
-                        <td style="width:45%; text-align:center; vertical-align:top;">
-                            <b>BỘ GIÁO DỤC VÀ ĐÀO TẠO</b><br>
-                            <b>TRƯỜNG {school_lvl} TÂN HIỆP & THIỆN NHÂN</b><br>
-                            <span style="font-size:12px; font-style:italic;">(Đề thi có 02 trang)</span>
-                        </td>
-                        <td style="width:55%; text-align:center; vertical-align:top;">
-                            <b>KỲ THI TỐT NGHIỆP TRUNG HỌC PHỔ THÔNG NĂM 2026</b><br>
-                            <b>Bài thi: {subject.upper()} - LỚP {grade_num}</b><br>
-                            <span style="font-size:12px; font-style:italic;">Thời gian làm bài: {p_time} phút, không kể thời gian phát đề</span>
-                        </td>
-                    </tr>
-                </table>
-                <hr style="border:0.8px solid #000; margin:8px 0 12px 0;">
-                <table style="width:100%; margin-bottom:15px;">
-                    <tr>
-                        <td style="font-size:13px;">Họ và tên thí sinh: ............................................................................</td>
-                        <td style="text-align:right;"><span style="border:1.5px solid #000; padding:4px 10px; font-weight:bold;">MÃ ĐỀ THI: {ex_code}</span></td>
-                    </tr>
-                    <tr>
-                        <td style="font-size:13px;">Số báo danh: ...................................................................................</td>
-                        <td></td>
-                    </tr>
-                </table>
-                {p1_html}
-                {p2_html}
-                {p3_html}
-                <div style="text-align:center; margin-top:20px; font-weight:bold; font-style:italic;">--------- HẾT ---------</div>
-                <div style="text-align:center; margin-top:15px;">
-                    <button onclick="window.print()" style="background:#0284c7; color:#fff; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">🖨️ In đề thi ngay (Ctrl + P)</button>
-                </div>
-            </div>
-            """
+            preview_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Đề thi {subject} - Lớp {grade_num} - Mã đề {ex_code}</title>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script>
+  window.MathJax = {{
+    tex: {{
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    }},
+    svg: {{ fontCache: 'global' }}
+  }};
+</script>
+<style>
+  body {{ background:#ffffff; color:#000000; margin:0; padding:20px; font-family:'Times New Roman', Times, serif; font-size:13.5px; line-height:1.45; }}
+  .page-box {{ background:#ffffff; padding:30px 38px; border-radius:6px; box-shadow:0 4px 15px rgba(0,0,0,0.3); max-width:850px; margin:auto; border:1px solid #e2e8f0; }}
+  @media print {{
+    body {{ padding:0; background:#fff !important; }}
+    .page-box {{ box-shadow:none !important; border:none !important; padding:0 !important; max-width:100% !important; }}
+    .no-print {{ display:none !important; }}
+    @page {{ size:A4 portrait; margin:12mm 15mm 15mm 15mm; }}
+  }}
+</style>
+</head>
+<body>
+    <div class="page-box">
+        <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+            <tr>
+                <td style="width:46%; text-align:center; vertical-align:top;">
+                    <div style="font-size:12.5px; font-weight:bold; letter-spacing:0.3px;">SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG</div>
+                    <div style="font-size:13.5px; font-weight:bold; margin-top:2px;">TRƯỜNG {school_lvl} TÂN HIỆP</div>
+                    <div style="width:110px; height:1px; background:#000; margin:3px auto 5px auto;"></div>
+                    <div style="font-size:13px; font-weight:bold; margin-top:2px;">ĐỀ THI CHÍNH THỨC</div>
+                    <div style="font-size:12px; font-style:italic;">(Đề thi có 02 trang)</div>
+                </td>
+                <td style="width:54%; text-align:center; vertical-align:top;">
+                    <div style="font-size:12.5px; font-weight:bold;">KỲ THI KHẢO THÍ CHẤT LƯỢNG LẦN {exam_attempt} - NĂM HỌC {acad_year}</div>
+                    <div style="font-size:13.5px; font-weight:bold; margin-top:2px;">Bài thi: {subject.upper()} - KHỐI LỚP {grade_num}</div>
+                    <div style="font-size:12px; font-style:italic; margin-top:2px;">Thời gian làm bài: {p_time} phút, không kể thời gian phát đề</div>
+                    <div style="width:170px; height:1.2px; background:#000; margin:6px auto 0 auto;"></div>
+                </td>
+            </tr>
+        </table>
+        <table style="width:100%; margin-bottom:14px;">
+            <tr>
+                <td style="font-size:13px;">Họ và tên thí sinh: ............................................................................</td>
+                <td style="text-align:right;"><span style="border:1.5px solid #000; padding:4px 10px; font-weight:bold; font-size:13.5px;">MÃ ĐỀ THI: {ex_code}</span></td>
+            </tr>
+            <tr>
+                <td style="font-size:13px;">Số báo danh: ...................................................................................</td>
+                <td></td>
+            </tr>
+        </table>
+        {p1_html}
+        {p2_html}
+        {p3_html}
+        <div style="text-align:center; margin-top:22px; font-weight:bold; font-style:italic;">--------- HẾT ---------</div>
+        <div class="no-print" style="text-align:center; margin-top:18px;">
+            <button onclick="window.print()" style="background:#0284c7; color:#fff; border:none; padding:9px 24px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13.5px; box-shadow:0 2px 8px rgba(0,0,0,0.2);">🖨️ In đề thi hoặc Lưu PDF ngay (Ctrl + P)</button>
+        </div>
+    </div>
+</body>
+</html>
+"""
             components.html(preview_html, height=750, scrolling=True)
+            st.download_button("📄 Tải Tờ Đề A4 Bản In Độc Lập (.html)", data=preview_html, file_name=f"DeThi_{subject}_Lop{grade_num}_MaDe{ex_code}_A4.html", mime="text/html")
 
         # XUẤT BẢN LATEX OVERLEAF CHUẨN FORM CHÍNH THỨC CỦA BỘ GD&ĐT
         st.markdown("---")
@@ -2214,7 +2394,6 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                 pts[i] = re.sub(r'(?<!\\)#', r'\#', pts[i])
             return "".join(pts)
 
-        # THUẬT TOÁN DÀN TRANG 4 PHƯƠNG ÁN A, B, C, D TỰ ĐỘNG CHUẨN BỘ THEO ĐỘ DÀI KÝ TỰ
         def format_moet_latex_options(opts):
             clean = []
             for o in opts:
@@ -2222,21 +2401,16 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                 c = sanitize_latex(c)
                 clean.append(c)
             while len(clean) < 4: clean.append("")
-            
             max_l = max(len(re.sub(r'[\$\\]', '', c)) for c in clean)
-            
-            # Cả 4 đáp án ngắn: Dàn đều trên 1 dòng duy nhất (4 cột) chuẩn Bộ GD&ĐT
             if max_l <= 16:
                 return r"""\noindent\begin{tabularx}{\linewidth}{@{}XXXX@{}}
 \textbf{A.} """ + clean[0] + r""" & \textbf{B.} """ + clean[1] + r""" & \textbf{C.} """ + clean[2] + r""" & \textbf{D.} """ + clean[3] + r"""
 \end{tabularx}"""
-            # Đáp án vừa phải: Dàn trên 2 dòng, mỗi dòng 2 cột chuẩn Bộ GD&ĐT
             elif max_l <= 36:
                 return r"""\noindent\begin{tabularx}{\linewidth}{@{}XX@{}}
 \textbf{A.} """ + clean[0] + r""" & \textbf{B.} """ + clean[1] + r""" \\
 \textbf{C.} """ + clean[2] + r""" & \textbf{D.} """ + clean[3] + r"""
 \end{tabularx}"""
-            # Đáp án dài: Mỗi đáp án 1 dòng riêng biệt
             else:
                 return r"""\begin{enumerate}[label=\textbf{\Alph*.}]
 \item """ + clean[0] + r"""
@@ -2245,6 +2419,10 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \item """ + clean[3] + r"""
 \end{enumerate}"""
 
+        now_vn = datetime.now(VN_TZ)
+        curr_year = now_vn.year
+        acad_year = f"{curr_year}-{curr_year + 1}" if now_vn.month >= 8 else f"{curr_year - 1}-{curr_year}"
+        exam_attempt = max(1, st.session_state.get('tram3_count', 1))
         school_lvl = "THCS" if grade_num <= 9 else "THPT"
         p_time = st.session_state.get('exam_time_mins', 45)
 
@@ -2268,10 +2446,11 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \begin{document}
 
 \noindent
-\begin{minipage}[t]{0.45\textwidth}
+\begin{minipage}[t]{0.46\textwidth}
     \begin{center}
-        \textbf{BỘ GIÁO DỤC VÀ ĐÀO TẠO}\\[2pt]
-        \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP \& THIỆN NHÂN}\\[4pt]
+        \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG}\\[2pt]
+        \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP}\\[2pt]
+        \centerline{\rule{3.2cm}{0.6pt}}\\[3pt]
         \textbf{ĐỀ THI CHÍNH THỨC}\\[2pt]
         \textit{(Đề thi có \pageref{LastPage} trang)}
     \end{center}
@@ -2279,15 +2458,14 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \hfill
 \begin{minipage}[t]{0.52\textwidth}
     \begin{center}
-        \textbf{KỲ THI TỐT NGHIỆP TRUNG HỌC PHỔ THÔNG NĂM 2026}\\[2pt]
-        \textbf{Bài thi: """ + subject.upper() + r""" -- Lớp """ + str(grade_num) + r"""}\\[2pt]
-        \textit{Thời gian làm bài: """ + str(p_time) + r""" phút, không kể thời gian phát đề}
+        \textbf{KỲ THI KHẢO THÍ CHẤT LƯỢNG LẦN """ + str(exam_attempt) + r""" -- NĂM HỌC """ + acad_year + r"""}\\[2pt]
+        \textbf{Bài thi: """ + subject.upper() + r""" -- Khối lớp """ + str(grade_num) + r"""}\\[2pt]
+        \textit{Thời gian làm bài: """ + str(p_time) + r""" phút, không kể thời gian phát đề}\\[2pt]
+        \centerline{\rule{4.5cm}{0.8pt}}
     \end{center}
 \end{minipage}
 
-\vspace{0.25cm}
-\noindent\rule{\linewidth}{0.8pt}
-\vspace{0.25cm}
+\vspace{0.35cm}
 
 \noindent
 \begin{tabularx}{\textwidth}{@{}X r@{}}
@@ -2346,7 +2524,24 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 \end{center}
 """
                     elif q.get("f"):
-                        latex_code += r"""\begin{center}
+                        f_info = q["f"]
+                        is_p = f_info.get("type") in ["parabola", "parabola_fprime"]
+                        if is_p:
+                            latex_code += r"""\begin{center}
+\begin{tikzpicture}[scale=0.7]
+\draw[->,thick] (-2.5,0) -- (4.2,0) node[right] {$x$};
+\draw[->,thick] (0,-4.5) -- (0,2.5) node[above] {$y$};
+\draw (0,0) node[below left] {$O$};
+\draw[domain=-1.5:3.5,smooth,variable=\x,thick,blue] plot ({\x},{(\x-1)*(\x-1) - 4});
+\draw[dashed] (1,0) -- (1,-4) -- (0,-4);
+\fill (1,-4) circle (1.5pt) node[below right] {$I(1;-4)$};
+\fill (-1,0) circle (1.5pt) node[below left] {$-1$};
+\fill (3,0) circle (1.5pt) node[below right] {$3$};
+\end{tikzpicture}
+\end{center}
+"""
+                        else:
+                            latex_code += r"""\begin{center}
 \begin{tikzpicture}[scale=0.7]
 \draw[->,thick] (-3,0) -- (3,0) node[right] {$x$};
 \draw[->,thick] (0,-3) -- (0,3) node[above] {$y$};
@@ -2365,6 +2560,26 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 """
                 for idx, q in enumerate(exam["p2"]):
                     latex_code += r"\item " + sanitize_latex(q.get('q', '')) + "\n"
+                    if q.get("bbt"):
+                        latex_code += r"""\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=1.2,espcl=2]{$x$/0.8,$y'$/0.8,$y$/1.5}{$-\infty$,$-1$,$1$,$+\infty$}
+\tkzTabLine{,+,0,-,0,+,}
+\tkzTabVar{-/$-\infty$,+/$2$,-/$-2$,+/$+\infty$}
+\end{tikzpicture}
+\end{center}
+"""
+                    elif q.get("mslgn_data"):
+                        ms = q["mslgn_data"]
+                        grs = ms.get("groups", [])
+                        frs = ms.get("freq", [])
+                        latex_code += r"""\begin{center}
+\begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
+\textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
+\textbf{Tần số} & """ + " & ".join([str(x) for x in frs]) + r""" \\ \hline
+\end{tabular}
+\end{center}
+"""
                     latex_code += r"""\begin{enumerate}[label=\textbf{\alph*)}]
 """
                     for s_idx, stmt in enumerate(q.get("stmts", [])):
@@ -2379,6 +2594,26 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 """
                 for idx, q in enumerate(exam["p3"]):
                     latex_code += r"\item " + sanitize_latex(q.get('q', '')) + "\n"
+                    if q.get("bbt"):
+                        latex_code += r"""\begin{center}
+\begin{tikzpicture}
+\tkzTabInit[lgt=1.2,espcl=2]{$x$/0.8,$y'$/0.8,$y$/1.5}{$-\infty$,$-1$,$1$,$+\infty$}
+\tkzTabLine{,+,0,-,0,+,}
+\tkzTabVar{-/$-\infty$,+/$2$,-/$-2$,+/$+\infty$}
+\end{tikzpicture}
+\end{center}
+"""
+                    elif q.get("mslgn_data"):
+                        ms = q["mslgn_data"]
+                        grs = ms.get("groups", [])
+                        frs = ms.get("freq", [])
+                        latex_code += r"""\begin{center}
+\begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
+\textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
+\textbf{Tần số} & """ + " & ".join([str(x) for x in frs]) + r""" \\ \hline
+\end{tabular}
+\end{center}
+"""
                 latex_code += r"""\end{enumerate}"""
 
         latex_code += r"""
