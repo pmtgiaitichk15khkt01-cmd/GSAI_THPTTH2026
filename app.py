@@ -631,18 +631,20 @@ try:
                     y_area = eval(clean_f, {"x": x_area, "np": np, "math": math})
                     if isinstance(y_area, (int, float)): y_area = np.full_like(x_area, float(y_area))
                     area_val = np.trapezoid(np.abs(y_area), x_area)
-                    st.success(f"📐 **Diện tích (S):**\n\n$$S = \int_{{{sa}}}^{{{sb}}} |{math_str}| dx \\approx {abs(area_val):.2f}$$")
+                    st.success(f"📐 **Diện tích (S):**\n\n$$S = \\int_{{{sa}}}^{{{sb}}} |{math_str}| dx \\approx {abs(area_val):.2f}$$")
                 except Exception:
                     pass
 
             with c2:
                 try:
                     fig_area = go.Figure()
+                    
                     x_full = np.linspace(sa - 3, sb + 3, 600)
                     y_full = eval(clean_f, {"x": x_full, "np": np, "math": math})
                     if isinstance(y_full, (int, float)): y_full = np.full_like(x_full, float(y_full))
                     
                     fig_area.add_trace(go.Scatter(x=x_full, y=y_full, mode='lines', line=dict(color='#38bdf8', width=3), name='Đồ thị hàm số'))
+                    
                     y_area_fill = eval(clean_f, {"x": x_area, "np": np, "math": math})
                     if isinstance(y_area_fill, (int, float)): y_area_fill = np.full_like(x_area, float(y_area_fill))
                     
@@ -873,7 +875,7 @@ try:
         elif dtype == "oxyz":
             c1, c2 = st.columns([1, 3])
             with c1:
-                st.caption("⚙️️ **Thay đổi tọa độ điểm M(x; y; z):**")
+                st.caption("⚙️ **Thay đổi tọa độ điểm M(x; y; z):**")
                 mx = st.slider("x:", -4.0, 5.0, float(data.get("x", 2.0)), 0.5, key="lab_3d_x")
                 my = st.slider("y:", -4.0, 5.0, float(data.get("y", 3.0)), 0.5, key="lab_3d_y")
                 mz = st.slider("z:", -4.0, 5.0, float(data.get("z", 4.0)), 0.5, key="lab_3d_z")
@@ -1179,8 +1181,7 @@ Học sinh đang học: Môn {subject} - Khối lớp: {grade_num}. Tên học s
                 with st.expander(f"📚 Chuyên đề ôn tập Lớp {grade_num}", expanded=True):
                     for i in range(1, 5):
                         t_name = f"Chuyên đề {i}: Kiến thức trọng tâm Học kỳ {i if i <= 2 else 'Tổng hợp'} môn {subject}"
-                        if st.checkbox(t_name, value=(i <= 2), key=f"chk_df_{subject}_{grade_num}_{i}
-"):
+                        if st.checkbox(t_name, value=(i <= 2), key=f"chk_df_{subject}_{grade_num}_{i}"):
                             selected_matrix_topics.append(t_name)
 
             if subject == "Ngữ văn":
