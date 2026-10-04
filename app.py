@@ -258,6 +258,25 @@ ALL_GEMINI_MODELS = [
 
 if "working_model" not in st.session_state: st.session_state.working_model = None
 
+DEFAULT_PEDAGOGICAL_SYSTEM_INSTRUCTION = """Bạn là Gia Sư AI Sư Phạm hàng đầu Việt Nam, hỗ trợ học sinh học tập theo đúng chuẩn Chương Trình Giáo Dục Phổ Thông 2018 (SGK Kết Nối Tri Thức với Cuộc Sống - NXB Giáo Dục Việt Nam & Cục Quản Lý Chất Lượng - Bộ GD&ĐT).
+NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CT GDPT 2018:
+1. MÔN TOÁN HỌC:
+   - TUYỆT ĐỐI NGHIÊM CẤM ra đề/giải bài về hàm số bậc bốn trùng phương y = ax^4 + bx^2 + c (đã BỊ BỎ HOÀN TOÀN khỏi CT 2018).
+   - Khảo sát hàm số Lớp 12 CHỈ ĐƯỢC PHÉP DÙNG 3 LOẠI HÀM:
+     + Hàm đa thức bậc ba: y = ax^3 + bx^2 + cx + d (a != 0)
+     + Hàm phân thức bậc nhất / bậc nhất: y = (ax + b) / (cx + d)
+     + Hàm phân thức bậc hai / bậc nhất: y = (ax^2 + bx + c) / (px + q) (có tiệm cận xiên)
+   - Lớp 10: Hàm bậc nhất & Parabol bậc hai y = ax^2 + bx + c.
+   - Lớp 11: Cấp số cộng/nhân, Hàm lượng giác, Giới hạn, Đạo hàm, Mẫu số liệu ghép nhóm.
+2. MÔN HÓA HỌC & KHOA HỌC TỰ NHIÊN:
+   - 100% sử dụng danh pháp quốc tế IUPAC chuẩn CT 2018 (Alkane, Alkene, Alkyne, Alcohol, Aldehyde, Carboxylic acid, Ester, Amine, Amino acid, Carbohydrate, Polymer...). TUYỆT ĐỐI KHÔNG dùng tên cũ (Ancol, Anđehit, Axit axetic, Benzen...).
+3. MÔN NGỮ VĂN:
+   - 100% ngữ liệu ĐỌC HIỂU và VIẾT BẮT BUỘC lấy từ tác phẩm văn học, báo chí, đời sống bên ngoài SGK (không lấy bài có sẵn trong SGK), chuẩn ma trận đề thi tốt nghiệp THPT 2025-2026.
+4. MÔN TIẾNG ANH:
+   - Bám sát chuẩn khung năng lực ngoại ngữ 6 bậc VN / CEFR (A2/B1/B2) và định dạng đề thi THPT 2026.
+5. QUY TẮC CÔNG THỨC TOÁN:
+   - TUYỆT ĐỐI KHÔNG bọc chữ tiếng Việt có dấu trong dấu $...$. Dấu $...$ chỉ dùng cho công thức toán ($x$, $f(x)$)."""
+
 def call_gemini_with_fallback(prompt_or_contents, system_instruction=None, json_mode=False):
     model_queue = [st.session_state.working_model] + [m for m in ALL_GEMINI_MODELS if m != st.session_state.working_model] if st.session_state.working_model else ALL_GEMINI_MODELS
     last_error_msg = ""
@@ -268,7 +287,8 @@ def call_gemini_with_fallback(prompt_or_contents, system_instruction=None, json_
                 try:
                     client = genai.Client(api_key=current_key)
                     cfg = types.GenerateContentConfig(thinking_config=types.ThinkingConfig(thinking_level="low"))
-                    if system_instruction: cfg.system_instruction = system_instruction
+                    effective_si = f"{DEFAULT_PEDAGOGICAL_SYSTEM_INSTRUCTION}\n\n{system_instruction}" if system_instruction else DEFAULT_PEDAGOGICAL_SYSTEM_INSTRUCTION
+                    cfg.system_instruction = effective_si
                     if json_mode: cfg.response_mime_type = "application/json"
                     response = client.models.generate_content(model=current_model, contents=prompt_or_contents, config=cfg)
                     st.session_state.working_model = current_model
@@ -1624,6 +1644,22 @@ def clean_question_bbt_text(q_text):
                 q_text = str(q.get("q", ""))
                 q_lower = q_text.lower()
                 
+                # QUY TẮC CỐT LÕI CT GDPT 2018: LOẠI BỎ TRIỆT ĐỂ HÀM SỐ BẬC BỐN TRÙNG PHƯƠNG
+                if "x^4" in q_text or "x^4" in str(q) or "trùng phương" in q_lower or "bậc 4" in q_lower or "bậc bốn" in q_lower:
+                    q["q"] = re.sub(r'x\^4\s*-\s*2mx\^2', r'x^3 - 3mx^2', q.get("q", ""))
+                    q["q"] = re.sub(r'x\^4\s*-\s*2x\^2', r'x^3 - 3x^2', q.get("q", ""))
+                    q["q"] = re.sub(r'x\^4', r'x^3', q.get("q", ""))
+                    q["q"] = re.sub(r'[tT]rùng phương', 'bậc ba', q.get("q", ""))
+                    q["q"] = re.sub(r'[bB]ậc 4|[bB]ậc bốn', 'bậc ba', q.get("q", ""))
+                    for s in q.get("stmts", []):
+                        s["t"] = re.sub(r'x\^4\s*-\s*2mx\^2', r'x^3 - 3mx^2', s.get("t", ""))
+                        s["t"] = re.sub(r'x\^4\s*-\s*2x\^2', r'x^3 - 3x^2', s.get("t", ""))
+                        s["t"] = re.sub(r'x\^4', r'x^3', s.get("t", ""))
+                        s["t"] = re.sub(r'[tT]rùng phương', 'bậc ba', s.get("t", ""))
+                        s["t"] = re.sub(r'[bB]ậc 4|[bB]ậc bốn', 'bậc ba', s.get("t", ""))
+                    if q.get("opt"):
+                        q["opt"] = [re.sub(r'x\^4', 'x^3', str(o)) for o in q["opt"]]
+                
                 # Làm sạch nội dung câu hỏi nếu AI chèn chuỗi mô tả BBT thô dạng text vào q
                 if "bảng biến thiên như sau:" in q_text and ("chạy từ" in q_text or "mang dấu" in q_text or "tăng từ" in q_text):
                     parts = q_text.split("bảng biến thiên như sau:")
@@ -1869,9 +1905,27 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ dạng:
   ]
 }}"""
                     else:
-                        exam_prompt = f"""[HỆ THỐNG RA ĐỀ THI TRẮC NGHIỆM CHUẨN BỘ GD&ĐT 2026 - QĐ 764/QĐ-BGDĐT]
+                        exam_prompt = f"""[HỆ THỐNG RA ĐỀ THI TRẮC NGHIỆM CHUẨN 100% CHƯƠNG TRÌNH GDPT 2018 - QĐ 764/QĐ-BGDĐT]
 Môn học: {subject} | Khối lớp: {grade_num}. 
 Chuyên đề liên khối lựa chọn: '{selected_topics_str}'. Mã đề: {st.session_state.exam_code}.
+
+NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CHƯƠNG TRÌNH GDPT 2018 (SGK KẾT NỐI TRI THỨC VỚI CUỘC SỐNG):
+1. MÔN TOÁN HỌC:
+   - TUYỆT ĐỐI NGHIÊM CẤM ra đề về hàm số bậc 4 trùng phương y = ax^4 + bx^2 + c (đã bị LOẠI BỎ hoàn toàn khỏi CT 2018).
+   - Khảo sát hàm số Lớp 12 CHỈ ĐƯỢC PHÉP DÙNG 3 LOẠI HÀM SỐ:
+     + Hàm đa thức bậc ba: y = ax^3 + bx^2 + cx + d (a != 0)
+     + Hàm phân thức bậc nhất / bậc nhất: y = (ax + b) / (cx + d)
+     + Hàm phân thức bậc hai / bậc nhất: y = (ax^2 + bx + c) / (px + q) (có tiệm cận xiên)
+   - Khối 10: Hàm bậc nhất & Parabol bậc hai y = ax^2 + bx + c.
+   - Khối 11: Cấp số cộng/nhân, Hàm lượng giác, Giới hạn, Đạo hàm, Mẫu số liệu ghép nhóm.
+2. MÔN HÓA HỌC & KHOA HỌC TỰ NHIÊN:
+   - 100% sử dụng danh pháp quốc tế IUPAC theo chuẩn CT 2018 (Alkane, Alkene, Alkyne, Alcohol, Aldehyde, Carboxylic acid, Ester, Amine, Amino acid, Carbohydrate, Polymer...). TUYỆT ĐỐI KHÔNG dùng tên cũ (Ancol, Anđehit, Axit axetic, Benzen...).
+3. MÔN TIẾNG ANH:
+   - Bám sát chuẩn khung năng lực ngoại ngữ 6 bậc VN / CEFR (A2/B1/B2) và cấu trúc đề thi THPT 2026.
+4. ĐỊNH DẠNG CÔNG THỨC:
+   - TUYỆT ĐỐI KHÔNG bọc chữ tiếng Việt có dấu trong dấu $...$. Dấu $...$ chỉ dùng cho công thức toán ($x$, $f(x)$).
+   - KHÔNG mô tả bảng biến thiên bằng lời rườm rà trong 'q'.
+
 YÊU CẦU MA TRẬN:
 - Phần I (Trắc nghiệm 4 lựa chọn): sinh ĐÚNG {num_p1} câu.
 - Phần II (Trắc nghiệm Đúng/Sai): sinh ĐÚNG {num_p2} câu (mỗi câu gồm 4 ý a, b, c, d).
