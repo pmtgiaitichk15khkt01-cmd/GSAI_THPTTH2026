@@ -2141,7 +2141,9 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         st.markdown(rep)
                         st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
-            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026
+            # ==============================================================================
+            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (TỰ ĐỘNG CHIA CỘT & SIÊU TIẾT KIỆM GIẤY)
+            # ==============================================================================
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
             latex_mode = st.radio("Định dạng xuất:", ["Chỉ xuất Đề thi in ấn", "Xuất Đề thi kèm Bảng đáp án"], horizontal=True)
@@ -2158,98 +2160,166 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 
             school_lvl = "THCS" if grade_num <= 9 else "THPT"
             ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
-            curr_y = datetime.now(VN_TZ).year
-            ay = f"{curr_y} -- {curr_y + 1}" if datetime.now(VN_TZ).month >= 9 else f"{curr_y - 1} -- {curr_y}"
+            ma_de_thi = random.randint(101, 999)
 
+            # HEADER LATEX TỐI ƯU CỰC KỲ TIẾT KIỆM GIẤY (LỀ 1.5CM)
             latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
 \usepackage[vietnamese]{babel}
 \usepackage{amsmath, amssymb, amsfonts, mathrsfs}
-\usepackage[margin=1.5cm]{geometry}
+\usepackage[top=1.5cm, bottom=1.5cm, left=1.5cm, right=1.5cm]{geometry}
 \usepackage{multicol}
 \usepackage{enumitem}
 \usepackage{tikz, tkz-tab, tkz-euclide}
+\usepackage{tabularx}
+\usepackage{lastpage}
 \usepackage{fancyhdr}
+
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{\textbf{Trường """ + school_lvl + r""" TÂN HIỆP \& THIỆN NHÂN}}
-\rhead{\textbf{Đề khảo thí môn """ + subject + r""" """ + str(grade_num) + r"""}}
-\cfoot{Trang \thepage}
+\renewcommand{\headrulewidth}{0pt}
+\cfoot{\small Trang \thepage/\pageref{LastPage} - Mã đề """ + str(ma_de_thi) + r"""}
+
+\setlength{\parindent}{0pt}
+\setlength{\columnsep}{0.5cm}
 
 \begin{document}
+
+\noindent
+\begin{minipage}[t]{0.45\textwidth}
 \begin{center}
-    \textbf{\Large ĐỀ KHẢO THÍ CHUẨN CẤU TRÚC KHKT 2026}\\[0.5cm]
+\textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG}\\
+\textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP}\\
+\noindent\rule{4cm}{0.8pt}
 \end{center}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}
+\begin{center}
+\textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026}\\
+\textbf{Bài thi: """ + subject.upper() + r"""}\\
+\textit{Thời gian làm bài: """ + str(ex_time) + r""" phút}\\
+\textit{(không kể thời gian phát đề)}
+\end{center}
+\end{minipage}
+
+\vspace{0.2cm}
+\noindent
+\begin{minipage}[t]{0.6\textwidth}
+\textbf{Họ, tên thí sinh:} \dotfill\\
+\textbf{Số báo danh:} \dotfill
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.35\textwidth}
+\begin{flushright}
+\textbf{MÃ ĐỀ THI: """ + str(ma_de_thi) + r"""}
+\end{flushright}
+\end{minipage}
+
+\vspace{0.3cm}
+\begin{center}
+    \textbf{\Large ĐỀ THI CHÍNH THỨC}\\[0.1cm]
+    \textit{(Đề thi có \pageref{LastPage} trang)}
+\end{center}
+\vspace{0.1cm}
 """
             if subject == "Ngữ văn":
                 dh = exam.get("part_doc_hieu", {})
-                latex_code += r"""\noindent\textbf{PHẦN I. ĐỌC HIỂU (4.0 điểm)}\\
+                latex_code += r"""\noindent\textbf{PHẦN I. ĐỌC HIỂU (4.0 điểm)}\vspace{0.1cm}
 \begin{center}
-\fbox{\begin{minipage}{0.9\linewidth}
+\fbox{\begin{minipage}{0.95\linewidth}
 \itshape """ + sanitize_latex(dh.get("text", "")) + r"""
 \end{minipage}}
-\end{center}\vspace{0.2cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}]
+\end{center}\vspace{0.1cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=0pt, parsep=0pt]
 """
                 for idx, q in enumerate(dh.get("questions", [])):
                     latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
                 latex_code += r"""\end{enumerate}
-\vspace{0.2cm}\noindent\textbf{PHẦN II. VIẾT (6.0 điểm)}\\[0.2cm]
-\begin{enumerate}[label=\textbf{Câu \arabic*.}]
+\vspace{0.2cm}\noindent\textbf{PHẦN II. VIẾT (6.0 điểm)}\vspace{0.1cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=0pt, parsep=0pt]
 """
                 for idx, v in enumerate(exam.get("part_viet", [])):
                     latex_code += f"\\item \\textbf{{({'2.0' if idx==0 else '4.0'} điểm).}} {sanitize_latex(v.get('q', ''))}\n"
                 latex_code += r"""\end{enumerate}"""
             else:
                 if exam.get("p1"):
-                    latex_code += r"""\noindent\textbf{PHẦN I. Trắc nghiệm nhiều lựa chọn.}\vspace{0.2cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}]
+                    p1_len = len(exam["p1"])
+                    latex_code += r"""\noindent\textbf{PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn.} Thí sinh trả lời từ câu 1 đến câu """ + str(p1_len) + r""". Mỗi câu hỏi thí sinh chỉ chọn một phương án.\vspace{0.1cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=2pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p1"]):
-                        latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
+                        q_text = sanitize_latex(q.get('q', ''))
+                        latex_code += f"\\item {q_text}\n"
                         opts = [sanitize_latex(o) for o in q.get("opt", [])]
-                        latex_code += "\\begin{multicols}{2}\n\\begin{enumerate}[label=\\textbf{\\Alph*.}]\n"
+                        
+                        # THUẬT TOÁN TÍNH TOÁN CỘT THÔNG MINH CHO CÂU TRẮC NGHIỆM
+                        max_opt_len = max([len(re.sub(r'\$.*?\$', '', opt)) for opt in opts]) if opts else 0
+                        if max_opt_len < 15:
+                            cols = 4  # Đáp án ngắn: Ép vào 4 cột trên 1 dòng
+                        elif max_opt_len < 40:
+                            cols = 2  # Đáp án vừa: Chia 2 cột
+                        else:
+                            cols = 1  # Đáp án dài: 1 cột nằm thẳng đuột không bao giờ rớt chữ
+                            
+                        if cols > 1:
+                            latex_code += f"\\begin{{multicols}}{{{cols}}}\n"
+                        
+                        # Thêm nosep, itemsep=0pt để ép chặt khoảng cách giữa các đáp án ABCD
+                        latex_code += "\\begin{enumerate}[label=\\textbf{\\Alph*.}, leftmargin=*, itemsep=0pt, parsep=0pt]\n"
                         for opt in opts:
-                            # Lọc bỏ tiền tố A., B., C., D. do đã có enumerate
                             opt_clean = re.sub(r'^[A-D]\.\s*', '', opt)
                             latex_code += f"\\item {opt_clean}\n"
-                        latex_code += "\\end{enumerate}\n\\end{multicols}\n"
+                        latex_code += "\\end{enumerate}\n"
+                        
+                        if cols > 1:
+                            latex_code += "\\end{multicols}\n"
+                            
                     latex_code += r"""\end{enumerate}"""
                     
                 if exam.get("p2"):
-                    latex_code += r"""\vspace{0.2cm}\noindent\textbf{PHẦN II. Trắc nghiệm đúng sai.}\vspace{0.2cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}]
+                    p2_len = len(exam["p2"])
+                    latex_code += r"""\vspace{0.2cm}\noindent\textbf{PHẦN II. Câu trắc nghiệm đúng sai.} Thí sinh trả lời từ câu 1 đến câu """ + str(p2_len) + r""". Trong mỗi ý \textbf{a), b), c), d)} ở mỗi câu, thí sinh chọn đúng hoặc sai.\vspace{0.1cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=2pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p2"]):
                         latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
-                        latex_code += "\\begin{enumerate}[label=\\textbf{\\alph*)}]\n"
+                        latex_code += "\\begin{enumerate}[label=\\textbf{\\alph*)}, leftmargin=*, itemsep=0pt, parsep=0pt]\n"
                         for s_idx, stmt in enumerate(q.get("stmts", [])):
-                            latex_code += f"\\item {sanitize_latex(stmt.get('t', ''))} \\hfill [\\quad] Đúng \\quad [\\quad] Sai\n"
+                            latex_code += f"\\item {sanitize_latex(stmt.get('t', ''))}\n"
                         latex_code += "\\end{enumerate}\n"
                     latex_code += r"""\end{enumerate}"""
                     
                 if exam.get("p3"):
-                    latex_code += r"""\vspace{0.2cm}\noindent\textbf{PHẦN III. Trả lời ngắn.}\vspace{0.2cm}
-\begin{enumerate}[label=\textbf{Câu \arabic*.}]
+                    p3_len = len(exam["p3"])
+                    latex_code += r"""\vspace{0.2cm}\noindent\textbf{PHẦN III. Câu trắc nghiệm trả lời ngắn.} Thí sinh trả lời từ câu 1 đến câu """ + str(p3_len) + r""".\vspace{0.1cm}
+\begin{enumerate}[label=\textbf{Câu \arabic*.}, leftmargin=*, itemsep=2pt, parsep=0pt]
 """
                     for idx, q in enumerate(exam["p3"]):
-                        latex_code += f"\\item {sanitize_latex(q.get('q', ''))} \\hfill \\framebox[2.5cm]{{\\rule{{0pt}}{{1.8ex}}Đáp số:}}\n"
+                        latex_code += f"\\item {sanitize_latex(q.get('q', ''))}\n"
                     latex_code += r"""\end{enumerate}"""
 
             if "kèm Bảng đáp án" in latex_mode and exam.get("p1"):
-                latex_code += r"""\newpage\begin{center}\textbf{\Large ĐÁP ÁN NHANH PHẦN I}\end{center}
-\noindent\begin{tabular}{|""" + "c|" * len(exam["p1"]) + r"""}\hline
+                latex_code += r"""\newpage\begin{center}\textbf{\Large BẢNG ĐÁP ÁN PHẦN I - MÃ ĐỀ """ + str(ma_de_thi) + r"""}\end{center}
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{|""" + "c|" * len(exam["p1"]) + r"""}\hline
 """
                 latex_code += " & ".join([f"\\textbf{{{i+1}}}" for i in range(len(exam["p1"]))]) + r""" \\ \hline
 """
                 latex_code += " & ".join([f"\\textbf{{{q.get('ans', '')}}}" for q in exam["p1"]]) + r""" \\ \hline
 \end{tabular}
+\end{center}
 """
-            latex_code += r"""\end{document}"""
+            latex_code += r"""\vspace{0.5cm}
+\begin{center}
+    \textbf{--- HẾT ---}
+\end{center}
+\end{document}"""
 
             st.code(latex_code, language="latex")
-            st.download_button("📥 Tải tệp .tex cho Overleaf (Chuẩn Bộ)", data=latex_code, file_name=f"DeThi_{subject}_Lop{grade_num}.tex", mime="text/plain")
+            st.download_button("📥 Tải tệp .tex cho Overleaf (Chuẩn Bộ)", data=latex_code, file_name=f"DeThi_{subject}_Lop{grade_num}_MaDe{ma_de_thi}.tex", mime="text/plain")
 
             st.markdown("---")
             if st.button("🔄 Làm đề khảo thí mới"):
@@ -2261,7 +2331,6 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
         else:
             st.session_state.exam_state = "config"
             st.rerun()
-
     # ------------------------------------------------------------------------------
     # TRẠM 4: TRUNG TÂM DỮ LIỆU KHKT, KIỂM ĐỊNH THỐNG KÊ (t-TEST, p-VALUE) & VÁ LỖI
     # ------------------------------------------------------------------------------
