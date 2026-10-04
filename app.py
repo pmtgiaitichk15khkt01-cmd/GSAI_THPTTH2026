@@ -2142,7 +2142,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
             # ==============================================================================
-            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (KHỚP 100% FORM TỐT NGHIỆP QUỐC GIA)
+            # 5. XUẤT BẢN LATEX CHUẨN BỘ 2026 (ÉP KHUNG MINIPAGE CHỐNG LẤN SÂN, IN ĐẬM SỞ GDĐT)
             # ==============================================================================
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
@@ -2162,7 +2162,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
             ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
             ma_de_thi = random.randint(101, 999)
 
-            # HEADER MÔ PHỎNG CHÍNH XÁC ĐỀ THI TỐT NGHIỆP THPT (KHÔNG GẠCH CHÂN CỘT TRÁI)
+            # HEADER LATEX CHIA KHỐI MINIPAGE CỰC KỲ AN TOÀN, KHÔNG BAO GIỜ BỊ ĐÈ CHỮ
             latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
@@ -2182,36 +2182,37 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 
 \setlength{\parindent}{0pt}
 \setlength{\columnsep}{0.5cm}
-\raggedcolumns
 
 \begin{document}
 
 \noindent
-\begin{tabular*}{\textwidth}{@{}l@{\extracolsep{\fill}}c@{}}
-    \begin{tabular}[t]{@{}c@{}}
-        SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG \\
-        \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\
-        \textbf{ĐỀ THI CHÍNH THỨC} \\
-        \textit{(Đề thi có \pageref{LastPage} trang)}
-    \end{tabular}
-    & 
-    \begin{tabular}[t]{@{}c@{}}
-        \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026} \\
-        Môn thi: \textbf{""" + subject.upper() + r"""} \\
-        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề}
-    \end{tabular}
-\end{tabular*}
+\begin{minipage}[t]{0.45\textwidth}
+    \centering
+    \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG} \\
+    \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\[0.2cm]
+    \textbf{ĐỀ THI CHÍNH THỨC} \\
+    \textit{(Đề thi có \pageref{LastPage} trang)}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.5\textwidth}
+    \centering
+    \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026} \\
+    Bài thi: \textbf{""" + subject.upper() + r"""} \\
+    \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút}\\
+    \textit{(không kể thời gian phát đề)}
+\end{minipage}
 
-\vspace{0.4cm}
+\vspace{0.6cm}
 \noindent
-\begin{tabular*}{\textwidth}{@{}l@{\extracolsep{\fill}}r@{}}
-    \begin{tabular}[t]{@{}l@{}}
-        \textbf{Họ, tên thí sinh:} \makebox[6cm]{\dotfill} \\
-        \textbf{Số báo danh:} \makebox[6cm]{\dotfill}
-    \end{tabular}
-    & 
-    \fbox{\makebox[3.5cm][c]{\textbf{Mã đề: """ + str(ma_de_thi) + r"""}}} \\
-\end{tabular*}
+\begin{minipage}[t]{0.65\textwidth}
+    \textbf{Họ, tên thí sinh:}\ \dotfill \\
+    \textbf{Số báo danh:}\ \dotfill
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.3\textwidth}
+    \raggedleft
+    \fbox{\makebox[3.5cm][c]{\textbf{Mã đề: """ + str(ma_de_thi) + r"""}}}
+\end{minipage}
 
 \vspace{0.4cm}
 """
