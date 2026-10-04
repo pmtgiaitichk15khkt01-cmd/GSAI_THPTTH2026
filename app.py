@@ -2142,7 +2142,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
                         st.session_state.tram3_chat_messages.append({"role": "assistant", "content": rep})
 
             # ==============================================================================
-            # 5. XUẤT BẢN LATEX CHUẨN MỰC TỐI THƯỢNG (ĐỦ SỞ, TRƯỜNG, ĐƯỜNG KẺ & MÃ ĐỀ 4 SỐ)
+            # 5. XUẤT BẢN LATEX CHUẨN MỰC TỐI THƯỢNG (KHỚP 100% ĐỀ THI TỐT NGHIỆP QUỐC GIA)
             # ==============================================================================
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX (Chuẩn Cấu Trúc Bộ GD&ĐT 2026)")
@@ -2162,7 +2162,7 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
             ex_time = 120 if subject == "Ngữ văn" else (90 if subject == "Toán học" else 50)
             ma_de_thi = f"{random.randint(100, 9999):04d}"
 
-            # HEADER HOÀN HẢO: ĐỦ SỞ, TRƯỜNG, ĐƯỜNG KẺ NGANG & MÃ ĐỀ 4 SỐ
+            # HEADER MÔ PHỎNG CHÍNH XÁC TỪNG MILIMET THEO ĐỀ THI CHÍNH THỨC CỦA BỘ
             latex_code = r"""\documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T5]{fontenc}
@@ -2186,28 +2186,26 @@ NGUYÊN TẮC: TUYỆT ĐỐI KHÔNG giải hộ, KHÔNG đưa ngay đáp số. 
 \begin{document}
 
 \noindent
-\begin{minipage}[t]{0.45\textwidth}
+\begin{minipage}[t]{0.42\textwidth}
     \begin{center}
-        \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO AN GIANG} \\
+        \textbf{SỞ GIÁO DỤC VÀ ĐÀO TẠO} \\
+        \textbf{AN GIANG} \\
         \textbf{TRƯỜNG """ + school_lvl + r""" TÂN HIỆP} \\[0.1cm]
         \textbf{ĐỀ THI CHÍNH THỨC} \\
         \textit{(Đề thi có \pageref{LastPage} trang)}
     \end{center}
 \end{minipage}%
 \hfill
-\begin{minipage}[t]{0.52\textwidth}
+\begin{minipage}[t]{0.55\textwidth}
     \begin{center}
         \textbf{KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM 2026} \\[0.1cm]
         Môn thi: \textbf{""" + subject.upper() + r"""} \\[0.1cm]
-        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề}
+        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề} \\[0.1cm]
+        \rule{7.5cm}{0.5pt}
     \end{center}
 \end{minipage}
 
-\vspace{0.1cm}
-\noindent
-\rule{\textwidth}{0.5pt}
-
-\vspace{0.3cm}
+\vspace{0.4cm}
 \noindent
 \begin{minipage}[b]{0.65\textwidth}
     \textbf{Họ, tên thí sinh:}\ \dotfill \\
