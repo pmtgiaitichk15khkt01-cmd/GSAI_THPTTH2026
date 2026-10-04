@@ -434,15 +434,17 @@ def render_mermaid(code: str):
 
             const maxWByDepth = {};
             nodes.forEach(d => {
-                d.boxWidth = Math.max(145, (d.data.name.length * 9) + 40);
+                const charLen = (d.data.name || '').length;
+                let estimatedW = Math.ceil(charLen * 8.2);
+                d.boxWidth = Math.max(70, estimatedW + 38);
                 if (!maxWByDepth[d.depth] || d.boxWidth > maxWByDepth[d.depth]) {
                     maxWByDepth[d.depth] = d.boxWidth;
                 }
             });
 
-            const depthX = [40];
+            const depthX = [35];
             for (let dep = 1; dep <= 8; dep++) {
-                depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 160) + 75;
+                depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 110) + 48;
             }
 
             nodes.forEach(d => { 
@@ -488,6 +490,17 @@ def render_mermaid(code: str):
                 .style("font-size", d => d.depth === 0 ? "14px" : "13px")
                 .style("font-weight", "700")
                 .text(d => d.data.name);
+
+            // DO TIM DO DAI CHUOI NOI DUNG THUC TE (DOM SVG getComputedTextLength) DE BAO SAT KHUNG
+            nodeEnter.each(function(d) {
+                const textNode = d3.select(this).select("text").node();
+                if (textNode && textNode.getComputedTextLength) {
+                    const realW = textNode.getComputedTextLength();
+                    if (realW > 0) {
+                        d.boxWidth = Math.max(65, Math.ceil(realW + 42));
+                    }
+                }
+            });
 
             const nodeUpdate = node.merge(nodeEnter).transition().duration(350)
                 .attr("transform", d => `translate(${d.y},${d.x})`);
@@ -1039,6 +1052,72 @@ def parse_quiz_questions(text):
 st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - HỆ SINH THÁI LỚP HỌC ĐẢO NGƯỢC</div><div class="sub-title">Trường THPT Tân Hiệp & Trung tâm Thiện Nhân • Đồng hành từ Lớp 6 đến Lớp 12</div><div style="margin-top: 8px;"><span class="badge-tag">Bộ sách: Kết Nối Tri Thức Với Cuộc Sống</span><span class="badge-tag" style="border-color: #34d399; color: #34d399; margin-left: 8px;">Chuẩn CT GDPT 2018 & Quy chế 2026</span></div></div>', unsafe_allow_html=True)
 
 # ==============================================================================
+
+# ==============================================================================
+# BO CONG CU NHAN DIEN GIONG NOI SPEECH-TO-TEX & DANH GIA TIENG ANH CHUAN IELTS/TOEFL
+# ==============================================================================
+def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject: str, current_grade: int):
+    st.markdown("---")
+    st.markdown(f"#### 🎙️ Bo Cong Cu Giong Noi Voice-to-TeX & Giang Bai Tieng Anh IELTS/TOEFL/PTE ({stage_id})")
+    
+    col_v1, col_v2 = st.columns([1.5, 1.0])
+    
+    with col_v1:
+        st.caption("🔊 **Noi/Doc cong thuc bang giong noi:** Tu dong dich tu ngu lieu noi sang chuan LaTeX, kiem chung lai truoc khi gui!")
+        voice_text_input = st.text_input(f"💬 Nhap hoac doc phat am cau hoi ({stage_id}):", key=f"voice_input_{stage_id}", placeholder="Vi du: tich phan tu 0 den 1 cua x binh cong 1 dx...")
+        
+        c_btn1, c_btn2 = st.columns(2)
+        with c_btn1:
+            if st.button(f"⚡ Dich sang chuan LaTeX & Kiem chung ({stage_id})", key=f"btn_tex_{stage_id}"):
+                if voice_text_input.strip():
+                    with st.spinner("AI dang chuyen doi giong noi/ngu lieu sang ma LaTeX..."):
+                        try:
+                            prompt_tex = f"Hay chuyen cau hoi/cong thuc sau day sang ma LaTeX toan/khoa hoc chuan: '{voice_text_input}'. Chi xuat ra khoi ma LaTeX hoac cong thuc $...$, khong giai thich dai dong."
+                            tex_res = call_gemini_with_fallback(prompt_tex)
+                            st.session_state[f"tex_confirm_{stage_id}"] = tex_res.strip()
+                        except Exception as e:
+                            st.error(f"Loi quy doi: {e}")
+                            
+        with c_btn2:
+            if st.session_state.get(f"tex_confirm_{stage_id}"):
+                if st.button(f"✅ Xac nhan dung y & Gui Thay AI", key=f"btn_send_{stage_id}", type="primary"):
+                    st.success("🎉 Da gui cau hoi chuan TeX thanh cong!")
+                    
+        if st.session_state.get(f"tex_confirm_{stage_id}"):
+            st.info(f"🔍 **AI da dich sang ma TeX:** {st.session_state[f'tex_confirm_{stage_id}']}")
+            st.caption("❓ **Kiem chung y dinh:** Co phai chay day la dung cong thuc/y muon hoi thuc su cua em khong?")
+            
+    with col_v2:
+        if current_subject == "Tiếng Anh":
+            st.markdown("##### 🇬🇧 Danh Gia Ky Nang Noi chuan IELTS/TOEFL:")
+            st.caption("Khao thi 4 tieu chi quoc te: Fluency, Lexical, Grammar, Pronunciation.")
+            
+            eng_topic = st.selectbox("Chu de Luyen Noi Tieng Anh:", ["Part 1: Education & Daily Life", "Part 2: Describe an experience", "Part 3: Global Technology & AI"], key=f"eng_select_{stage_id}")
+            eng_speak = st.text_area("Nhap bai noi Tieng Anh (hoac doc phat am):", key=f"eng_txt_{stage_id}", placeholder="Type or speak your English response here...")
+            
+            if st.button("📊 Cham diem IELTS/TOEFL", key=f"btn_ielts_{stage_id}") and eng_speak.strip():
+                with st.spinner("AI dang cham diem 4 tieu chi chuan Khung Khao thi Quoc te..."):
+                    try:
+                        rubric_prompt = f"""Ban la Giam khao IELTS Speaking Chuyen nghiep. Hay cham bai noi Tieng Anh sau day cua hoc sinh:
+Context: {eng_topic}
+Student text: '{eng_speak}'
+
+Xuat 1 phan hoi ngan gon danh gia 4 tieu chi:
+1. Fluency & Coherence (Band 0-9)
+2. Lexical Resource (Band 0-9)
+3. Grammatical Range & Accuracy (Band 0-9)
+4. Pronunciation & Intonation (Band 0-9)
+-> OVERALL BAND SCORE (Vi du: Band 7.0) kem 2 loi khuyen sua loi phat am/tu vung cu the.
+"""
+                        eval_res = call_gemini_with_fallback(rubric_prompt)
+                        st.success("🏆 KET QUA DANH GIA TIENG ANH QUOC TE:")
+                        st.markdown(eval_res)
+                    except Exception as e:
+                        st.error(f"Loi danh gia: {e}")
+        else:
+            st.caption("💡 **Luu y:** Khi chon mon **Tiếng Anh**, Khung Khao thi IELTS/TOEFL Speaking & Listening se tu dong kich hoat tai day!")
+
+
 # 8. CÁC TRẠM CHÍNH NÂNG CẤP
 # ==============================================================================
 tab1, tab2, tab3, tab4 = st.tabs(["📖 Trạm 1: Học Tập & Phòng Lab", "✍️ Trạm 2: Gia Sư Socratic & Nộp Bài", "📝 Trạm 3: Khảo Thí Độc Lập", "📊 Trạm 4: Dữ Liệu KHKT & Tự Động Vá Lỗi"])
@@ -1160,6 +1239,9 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
         if len(part3_split) > 1 and part3_split[-1].strip():
             st.markdown("### ✍️ Phần 3: Bài tập tự luận & Hướng dẫn tư duy")
             st.markdown(part3_split[-1].strip())
+
+    
+    render_voice_speech_tex_and_english_evaluator('Tram 1', subject, grade_num)
 
     # PHÒNG LAB VIRTUAL LAB
     st.markdown("---")
@@ -1291,6 +1373,9 @@ Cuối phản hồi PHẢI có khối JSON:
                     st.rerun()
                 except Exception as e: 
                     st.error(f"Lỗi phân tích bài làm: {e}")
+
+    
+    render_voice_speech_tex_and_english_evaluator('Tram 2', subject, grade_num)
 
     # BẢN ĐỒ LỖ HỔNG KHIẾN THỨC RADAR CHART ĐA MÔN LỚP 6-12
     if st.session_state.get("student_progress_history"):
@@ -1510,9 +1595,33 @@ with tab3:
         with col_ex1:
             st.markdown("#### ⚙️ Cấu hình Ma trận Đề thi:")
             st.info(f"**Mã đề thi tự động:** `MÃ ĐỀ {st.session_state.exam_code}` (Chuẩn 4 chữ số Bộ GD&ĐT)")
-            curr_list = BIGDATA_CURRICULUM.get(subject, {}).get(grade_num, [f"Chuyên đề tổng hợp môn {subject} Lớp {grade_num}"])
-            selected_topic = st.radio("Chọn Chuyên đề trọng tâm:", curr_list, key="exam_topic_radio")
-            exam_time_mins = st.selectbox("Thời lượng bài thi:", [15, 45, 50, 90, 120], index=1)
+            # NANG CAP MA TRAN DE THI LIEN KHOI THEO QUY CHUAN BO GD&DT
+            subj_curr = BIGDATA_CURRICULUM.get(subject, {})
+            cross_topics = []
+            if grade_num == 12:
+                for t in subj_curr.get(12, []): cross_topics.append(f"[Lop 12 - Trong tam 70%] {t}")
+                for t in subj_curr.get(11, []): cross_topics.append(f"[Lop 11 - On tap 20%] {t}")
+                for t in subj_curr.get(10, []): cross_topics.append(f"[Lop 10 - Nen tang 10%] {t}")
+            elif grade_num == 11:
+                for t in subj_curr.get(11, []): cross_topics.append(f"[Lop 11 - Trong tam 80%] {t}")
+                for t in subj_curr.get(10, []): cross_topics.append(f"[Lop 10 - On tap 20%] {t}")
+            else:
+                for t in subj_curr.get(grade_num, []): cross_topics.append(f"[Lop {grade_num}] {t}")
+                
+            if not cross_topics: cross_topics = [f"Chuyen de tong hop mon {subject} Lop {grade_num}"]
+            
+            selected_topic = st.selectbox("🎯 Chon Chuyen de khao thi (Ho tro On tap Lien khoi Lop 10-12):", cross_topics, key="exam_topic_radio")
+            
+            st.markdown("##### 📊 Tuy chinh Phan bo Ma tran Muc do Cau hoi (Chuan Cong van Bo GD&DT):")
+            c_mat1, c_mat2 = st.columns(2)
+            with c_mat1:
+                num_nb = st.number_input("So cau Nhan biet (Phan I):", min_value=1, max_value=20, value=6)
+                num_th = st.number_input("So cau Thong hieu (Phan I-II):", min_value=1, max_value=20, value=6)
+            with c_mat2:
+                num_vd = st.number_input("So cau Van dung (Phan II):", min_value=1, max_value=10, value=4)
+                num_vdc = st.number_input("So cau Van dung cao (Phan III):", min_value=1, max_value=10, value=2)
+                
+            exam_time_mins = st.selectbox("Thoi luong bai thi:", [15, 45, 50, 90, 120], index=1)
             
             if st.button("🚀 Khởi tạo đề thi chuẩn cấu trúc 2026", width="stretch"):
                 st.session_state.exam_code = str(random.randint(1011, 9999))
@@ -1539,7 +1648,8 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ dạng:
 }}"""
                     else:
                         exam_prompt = f"""[HỆ THỐNG RA ĐỀ THI TRẮC NGHIỆM CHUẨN BỘ GD&ĐT 2026 - QĐ 764/QĐ-BGDĐT]
-Môn học: {subject} | Khối lớp: {grade_num}. Chủ đề: '{selected_topic}'. Mã đề: {st.session_state.exam_code}.
+Môn học: {subject} | Khối lớp thực tế: {grade_num}. Chuyên đề ma trận liên khối: '{selected_topic}'. Mã đề: {st.session_state.exam_code}.
+CẤU TRÚC MA TRẬN YÊU CẦU: {num_nb} câu Nhận biết, {num_th} câu Thông hiểu, {num_vd} câu Vận dụng, {num_vdc} câu Vận dụng cao.
 Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 {{
   "code": "{st.session_state.exam_code}",
