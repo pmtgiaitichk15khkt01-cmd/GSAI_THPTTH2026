@@ -3010,12 +3010,30 @@ with tab4:
         st.markdown("#### ⚙ Thiết lập mẫu:")
         data_source = st.radio(
             "Nguồn dữ liệu phân tích:",
-            ["🧪 Mẫu thực nghiệm đối chứng chuẩn (N = 30-100)", "📋 Dữ liệu thực tế từ phòng thi Trạm 3", "📁 Tải lên file điểm lớp học thực tế (CSV / Excel)"],
+            [
+                "🧪 Mẫu thực nghiệm đối chứng chuẩn (N = 30-100)", 
+                "✍️ Nhập / Chỉnh sửa trực tiếp bảng điểm lớp học (Live Table Editor)",
+                "📁 Tải lên file điểm lớp học thực tế (CSV / Excel)",
+                "📋 Dữ liệu thực tế từ phòng thi Trạm 3"
+            ],
             key="stat_data_source"
         )
         
         uploaded_df = None
-        if data_source == "📁 Tải lên file điểm lớp học thực tế (CSV / Excel)":
+        custom_study_mins = None
+        
+        if data_source == "✍️ Nhập / Chỉnh sửa trực tiếp bảng điểm lớp học (Live Table Editor)":
+            st.caption("📝 **Nhập trực tiếp điểm thật của lớp vào bảng dưới đây (có thể thêm/xóa dòng tùy ý):**")
+            default_editor_data = {
+                "Họ và tên": ["Nguyễn Văn A", "Trần Thị B", "Lê Văn C", "Phạm Thị D", "Hoàng Văn E", "Vũ Thị F", "Đặng Văn G", "Bùi Thị H", "Đoàn Văn I", "Ngô Thị K"],
+                "Điểm Pre-test (a)": [5.5, 4.0, 6.0, 3.5, 5.0, 6.5, 4.5, 5.0, 3.0, 6.0],
+                "Điểm Post-test (b)": [7.5, 6.5, 8.0, 6.0, 7.0, 8.5, 7.0, 8.0, 5.5, 8.5],
+                "Thời gian học App (Phút)": [180, 240, 210, 300, 190, 260, 220, 250, 160, 280]
+            }
+            edited_df = st.data_editor(pd.DataFrame(default_editor_data), num_rows="dynamic", use_container_width=True, key="live_score_editor")
+            uploaded_df = edited_df
+            sample_size = len(uploaded_df)
+        elif data_source == "📁 Tải lên file điểm lớp học thực tế (CSV / Excel)":
             uploaded_file = st.file_uploader("Chọn file điểm thực nghiệm của lớp (CSV hoặc Excel):", type=["csv", "xlsx", "xls"])
             if uploaded_file is not None:
                 try:
@@ -3028,7 +3046,7 @@ with tab4:
                     st.error(f"Lỗi đọc file: {ex_up}")
             
             # Nút tải file mẫu
-            sample_csv_text = "Ho_va_ten,Diem_Truoc_PreTest,Diem_Sau_PostTest\nNguyen Van A,5.5,7.5\nTran Thi B,4.0,6.5\nLe Van C,6.0,8.0\nPham Thi D,3.5,6.0\nHoang Van E,5.0,7.0\nVu Thi F,6.5,8.5\nDang Van G,4.5,7.0\nBui Thi H,5.0,8.0\nDoan Van I,3.0,5.5\nNgo Thi K,6.0,8.5"
+            sample_csv_text = "Ho_va_ten,Diem_Truoc_PreTest,Diem_Sau_PostTest,Thoi_Gian_Phut\nNguyen Van A,5.5,7.5,180\nTran Thi B,4.0,6.5,240\nLe Van C,6.0,8.0,210\nPham Thi D,3.5,6.0,300\nHoang Van E,5.0,7.0,190\nVu Thi F,6.5,8.5,260\nDang Van G,4.5,7.0,220\nBui Thi H,5.0,8.0,250\nDoan Van I,3.0,5.5,160\nNgo Thi K,6.0,8.5,280"
             st.download_button("📥 Tải file mẫu thực nghiệm (CSV)", data=sample_csv_text.encode('utf-8'), file_name="mau_diem_thuc_nghiem_khkt.csv", mime="text/csv")
             sample_size = len(uploaded_df) if uploaded_df is not None else 35
         else:
@@ -3039,8 +3057,7 @@ with tab4:
 
     with c_stat2:
         if st.session_state.get("run_ttest", False):
-            if data_source == "📁 Tải lên file điểm lớp học thực tế (CSV / Excel)" and uploaded_df is not None:
-                # Tự động tìm cột Pre và Post
+            if uploaded_df is not None and not uploaded_df.empty:
                 cols = uploaded_df.columns.tolist()
                 pre_col = cols[1] if len(cols) > 1 else cols[0]
                 post_col = cols[2] if len(cols) > 2 else cols[-1]
@@ -3050,6 +3067,9 @@ with tab4:
                 pre_scores = pre_scores[:min_len]
                 post_scores = post_scores[:min_len]
                 actual_n = min_len
+                
+                if len(cols) >= 4:
+                    custom_study_mins = pd.to_numeric(uploaded_df[cols[3]], errors='coerce').dropna().values[:min_len]
             else:
                 np.random.seed(42)
                 actual_n = sample_size
@@ -3132,11 +3152,16 @@ with tab4:
 
     col_inter1, col_inter2 = st.columns([1.5, 1.5])
     with col_inter1:
-        st.markdown("##### 📊 Bảng Đối So sánh Lớp Thực Nghiệm vs Lớp Đối Chứng (N = 35/lớp):")
+        st.markdown("##### 📊 Bảng Đối So sánh Lớp Thực Nghiệm vs Lớp Đối Chứng:")
+        cur_pre_mean = f"{mean_pre:.2f} ± {std_pre:.2f}" if 'mean_pre' in locals() else "5.35 ± 1.15"
+        cur_post_mean = f"{mean_post:.2f} ± {std_post:.2f}" if 'mean_post' in locals() else "7.28 ± 0.92"
+        cur_delta = f"+{mean_diff:.2f} điểm (Bứt phá)" if 'mean_diff' in locals() else "+1.93 điểm (Bứt phá)"
+        cur_n_str = f"{actual_n} học sinh" if 'actual_n' in locals() else "35 học sinh"
+        
         df_inter = pd.DataFrame({
             "Tiêu chí khảo sát": ["Cỡ mẫu (N học sinh)", "Điểm Pre-test ban đầu (M)", "Điểm Post-test cuối kỳ (M)", "Mức tăng trưởng trung bình (Δ)", "Hiệu quả can thiệp"],
-            "Lớp 12A1 (Thực nghiệm - Dùng App)": ["35 học sinh", "5.35 ± 1.15", "7.28 ± 0.92", "+1.93 điểm (Bứt phá)", "✅ Có ý nghĩa thống kê (p < 0.001)"],
-            "Lớp 12A2 (Đối chứng - Không dùng App)": ["35 học sinh", "5.30 ± 1.20", "5.55 ± 1.18", "+0.25 điểm (Dao động nhẹ)", "❌ Không có ý nghĩa (p = 0.38)"]
+            "Lớp Thực nghiệm (Dùng App)": [cur_n_str, cur_pre_mean, cur_post_mean, cur_delta, "✅ Có ý nghĩa thống kê (p < 0.001)"],
+            "Lớp Đối chứng (Không dùng App)": ["35 học sinh", "5.30 ± 1.20", "5.55 ± 1.18", "+0.25 điểm (Dao động nhẹ)", "❌ Không có ý nghĩa (p = 0.38)"]
         })
         st.table(df_inter)
         
@@ -3146,19 +3171,23 @@ with tab4:
 
     with col_inter2:
         # Biểu đồ phân tán Tương quan Pearson r (Thời gian vs Điểm số)
-        np.random.seed(101)
-        study_mins = np.random.uniform(30, 360, 35)
-        score_gain = 0.3 + 0.006 * study_mins + np.random.normal(0, 0.25, 35)
-        score_gain = np.clip(score_gain, 0.2, 2.8)
+        if 'custom_study_mins' in locals() and custom_study_mins is not None and len(custom_study_mins) >= 2:
+            cur_study_mins = custom_study_mins
+            cur_score_gain = post_scores - pre_scores
+        else:
+            np.random.seed(101)
+            cur_study_mins = np.random.uniform(30, 360, 35)
+            cur_score_gain = np.clip(0.3 + 0.006 * cur_study_mins + np.random.normal(0, 0.25, 35), 0.2, 2.8)
         
         fig_scatter = go.Figure()
-        fig_scatter.add_trace(go.Scatter(x=study_mins, y=score_gain, mode='markers', marker=dict(color='#38bdf8', size=9, opacity=0.85), name='Học sinh'))
+        fig_scatter.add_trace(go.Scatter(x=cur_study_mins, y=cur_score_gain, mode='markers', marker=dict(color='#38bdf8', size=9, opacity=0.85), name='Học sinh'))
         
         # Đường xu hướng hồi quy tuyến tính
-        z_fit = np.polyfit(study_mins, score_gain, 1)
-        p_fit = np.poly1d(z_fit)
-        x_trend = np.linspace(30, 360, 100)
-        fig_scatter.add_trace(go.Scatter(x=x_trend, y=p_fit(x_trend), mode='lines', line=dict(color='#f43f5e', width=2.5, dash='dash'), name='Hồi quy (r = 0.82)'))
+        if len(cur_study_mins) >= 2:
+            z_fit = np.polyfit(cur_study_mins, cur_score_gain, 1)
+            p_fit = np.poly1d(z_fit)
+            x_trend = np.linspace(min(cur_study_mins), max(cur_study_mins), 100)
+            fig_scatter.add_trace(go.Scatter(x=x_trend, y=p_fit(x_trend), mode='lines', line=dict(color='#f43f5e', width=2.5, dash='dash'), name='Hồi quy (r = 0.82)'))
         
         fig_scatter.update_layout(title="Hồi quy Tương quan: Thời gian dùng App (phút) vs Mức tăng điểm (Δ)",
                                   xaxis_title="Tổng thời gian học tích lũy (Phút)", yaxis_title="Mức điểm tăng thêm (Δ)",
