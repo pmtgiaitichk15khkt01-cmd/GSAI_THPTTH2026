@@ -67,5 +67,21 @@ streamlit run app.py
 
 ---
 
+
+---
+
+## 🔒 CAM KẾT SƯ PHẠM, TRUNG THỰC VÀ BẢO MẬT DỮ LIỆU
+
+### 1. Cam kết Sư phạm & Trung thực Học thuật
+- **Triết lý Socratic Tuyệt đối:** Hệ thống được thiết lập cơ chế kiểm soát nghiêm ngặt (Hard-Prompt) để đảm bảo AI **tuyệt đối không giải hộ, không đưa ra đáp án trực tiếp**. AI chỉ đóng vai trò người dẫn dắt, đưa ra gợi ý, đặt câu hỏi phản biện để học sinh tự tìm ra chân lý.
+- **Tuân thủ Chuẩn mực Giáo dục (CT GDPT 2018):** Mọi nội dung giảng dạy, thuật ngữ, sơ đồ tư duy và đề thi xuất bản đều tuân thủ 100% hướng dẫn của Bộ Giáo dục và Đào tạo (QĐ 764/QĐ-BGDĐT), tương thích với bộ sách Kết Nối Tri Thức Với Cuộc Sống.
+
+### 2. Cam kết Bảo mật Dữ liệu KHKT
+- **Ẩn danh hóa dữ liệu (Anonymization):** Mọi dữ liệu thu thập (điểm số, tiến độ học tập, ảnh chụp bài làm) đều được ẩn danh hoàn toàn, không lưu trữ thông tin cá nhân định danh học sinh (PII).
+- **Mục đích sử dụng Độc quyền:** Dữ liệu chỉ được sử dụng duy nhất cho mục đích:
+  - Huấn luyện và tinh chỉnh (Fine-tuning) AI cá nhân hóa lộ trình học.
+  - Cung cấp dữ liệu đối chứng (Paired t-Test, Effect Size) phục vụ báo cáo Đề tài KHKT Quốc gia.
+- **Minh bạch & Quyền kiểm soát:** Học sinh và Giáo viên Admin có toàn quyền xóa dữ liệu học tập của mình. Quá trình thu thập hoàn toàn minh bạch thông qua cơ sở dữ liệu đồng bộ Google Sheets thời gian thực với phân quyền Admin bảo mật cao.
+
 ## 🏆 ĐỒNG HÀNH THI KHKT QUỐC GIA 2026
 Dự án được xây dựng với tinh thần **Dưỡng thiện tâm - Ươm nhân tài • Dẫn dắt tư duy tự học**, sẵn sàng cho mọi phần thuyết trình và phản biện trước Ban Giám khảo!
