@@ -1654,56 +1654,74 @@ with tab3:
                         pass
 
     if st.session_state.exam_state == "config":
-        col_ex1, col_ex2 = st.columns([1.6, 2.4])
+        col_ex1, col_ex2 = st.columns([1.15, 0.95], gap="medium")
+        
         with col_ex1:
-            st.markdown("#### ⚙️ Cấu hình Ma trận Đề thi Chuẩn Khảo Thí 2026:")
-            st.info(f"**Mã đề thi tự động:** `MÃ ĐỀ {st.session_state.exam_code}` (Chuẩn 4 chữ số Bộ GD&ĐT)")
+            st.markdown("#### ⚙️ Cấu hình Ngữ liệu & Ma trận Chuyên đề:")
+            st.info(f"🏷️ **Mã đề thi tự động:** `MÃ ĐỀ {st.session_state.exam_code}` (Chuẩn 4 chữ số Bộ GD&ĐT)")
             
-            # GIAO DIỆN CHỌN CHUYÊN ĐỀ THEO TABS PHÂN KHỐI LỚP (12, 11, 10...)
+            # GIAO DIỆN CHỌN CHUYÊN ĐỀ THEO TABS & CHECKBOXES NHỎ GỌN, THANH LỊCH (KHÔNG DÙNG THẺ ĐỎ CHÓI MẮT)
             subj_curr = BIGDATA_CURRICULUM.get(subject, {})
-            st.markdown("##### 📚 Chọn Chuyên đề Khảo thí theo Khối lớp (Hỗ trợ chọn nhiều chuyên đề):")
+            st.markdown("##### 📚 Chọn Chuyên đề Khảo thí theo Khối lớp:")
             
             chosen_topics = []
             if grade_num == 12:
                 t12_tab, t11_tab, t10_tab = st.tabs(["🏷️ Lớp 12 (Trọng tâm)", "🏷️ Lớp 11 (Ôn tập)", "🏷️ Lớp 10 (Nền tảng)"])
                 with t12_tab:
                     l12 = subj_curr.get(12, [])
-                    sel_12 = st.multiselect("Chuyên đề Lớp 12:", l12, default=[l12[0]] if l12 else [], key="sel_t12")
+                    st.caption("Chọn các chuyên đề trọng tâm Lớp 12:")
+                    for idx_t, t_name in enumerate(l12):
+                        if st.checkbox(t_name, value=(idx_t == 0), key=f"cb_12_{idx_t}"):
+                            chosen_topics.append(f"[Lớp 12] {t_name}")
                 with t11_tab:
                     l11 = subj_curr.get(11, [])
-                    sel_11 = st.multiselect("Chuyên đề Lớp 11:", l11, key="sel_t11")
+                    st.caption("Chọn các chuyên đề ôn tập Lớp 11:")
+                    for idx_t, t_name in enumerate(l11):
+                        if st.checkbox(t_name, value=False, key=f"cb_11_{idx_t}"):
+                            chosen_topics.append(f"[Lớp 11] {t_name}")
                 with t10_tab:
                     l10 = subj_curr.get(10, [])
-                    sel_10 = st.multiselect("Chuyên đề Lớp 10:", l10, key="sel_t10")
-                chosen_topics = [f"[Lớp 12] {x}" for x in sel_12] + [f"[Lớp 11] {x}" for x in sel_11] + [f"[Lớp 10] {x}" for x in sel_10]
+                    st.caption("Chọn các chuyên đề nền tảng Lớp 10:")
+                    for idx_t, t_name in enumerate(l10):
+                        if st.checkbox(t_name, value=False, key=f"cb_10_{idx_t}"):
+                            chosen_topics.append(f"[Lớp 10] {t_name}")
             elif grade_num == 11:
                 t11_tab, t10_tab = st.tabs(["🏷️ Lớp 11 (Trọng tâm)", "🏷️ Lớp 10 (Ôn tập)"])
                 with t11_tab:
                     l11 = subj_curr.get(11, [])
-                    sel_11 = st.multiselect("Chuyên đề Lớp 11:", l11, default=[l11[0]] if l11 else [], key="sel_t11")
+                    st.caption("Chọn các chuyên đề trọng tâm Lớp 11:")
+                    for idx_t, t_name in enumerate(l11):
+                        if st.checkbox(t_name, value=(idx_t == 0), key=f"cb_11_{idx_t}"):
+                            chosen_topics.append(f"[Lớp 11] {t_name}")
                 with t10_tab:
                     l10 = subj_curr.get(10, [])
-                    sel_10 = st.multiselect("Chuyên đề Lớp 10:", l10, key="sel_t10")
-                chosen_topics = [f"[Lớp 11] {x}" for x in sel_11] + [f"[Lớp 10] {x}" for x in sel_10]
+                    st.caption("Chọn các chuyên đề ôn tập Lớp 10:")
+                    for idx_t, t_name in enumerate(l10):
+                        if st.checkbox(t_name, value=False, key=f"cb_10_{idx_t}"):
+                            chosen_topics.append(f"[Lớp 10] {t_name}")
             else:
                 lg = subj_curr.get(grade_num, [f"Chuyên đề tổng hợp môn {subject} Lớp {grade_num}"])
-                sel_g = st.multiselect(f"Chuyên đề Lớp {grade_num}:", lg, default=[lg[0]] if lg else [], key=f"sel_t{grade_num}")
-                chosen_topics = [f"[Lớp {grade_num}] {x}" for x in sel_g]
+                st.caption(f"Chọn chuyên đề Lớp {grade_num}:")
+                for idx_t, t_name in enumerate(lg):
+                    if st.checkbox(t_name, value=(idx_t == 0), key=f"cb_{grade_num}_{idx_t}"):
+                        chosen_topics.append(f"[Lớp {grade_num}] {t_name}")
                 
             if not chosen_topics:
                 chosen_topics = [f"Chuyên đề tổng hợp môn {subject} Lớp {grade_num}"]
 
-            st.caption(f"📌 **Đã chọn ({len(chosen_topics)} chuyên đề):** {', '.join(chosen_topics[:3])}{'...' if len(chosen_topics) > 3 else ''}")
+            st.caption(f"📌 **Đã chọn ({len(chosen_topics)} chuyên đề):** {', '.join(chosen_topics[:2])}{'...' if len(chosen_topics) > 2 else ''}")
             
             # KHUNG CHAT / NHẬP YÊU CẦU TÙY BIẾN MA TRẬN CHUYÊN SÂU CỦA GV & HS
             custom_matrix_prompt = st.text_area(
                 "💬 Nhập yêu cầu cấu hình ma trận tùy biến (GV & HS):",
                 placeholder="Ví dụ: Cần 12 câu trắc nghiệm KSHS Lớp 12 (6 NB, 6 TH), 2 câu Đúng/Sai Cấp số cộng Lớp 11, 2 câu Trả lời ngắn VDC Lớp 10...",
+                height=110,
                 help="AI sẽ tuân thủ tuyệt đối số câu, độ khó và chuyên đề theo yêu cầu này."
             )
+
+        with col_ex2:
+            st.markdown("#### 📊 Cấu trúc Điểm số & Thời Gian Thi:")
             
-            # BAREME ĐIỂM CHUẨN BỘ GD&ĐT & THỜI GIAN THÍCH ỨNG
-            st.markdown("##### 📊 Cấu trúc Phân bổ Điểm số & Số câu (Chuẩn QĐ 764/QĐ-BGDĐT):")
             # Thiết lập mặc định theo đặc thù môn học
             if subject == "Toán học":
                 def_p1, def_p2, def_p3, def_time = 12, 4, 6, 90
@@ -1716,11 +1734,11 @@ with tab3:
 
             c_cnt1, c_cnt2, c_cnt3 = st.columns(3)
             with c_cnt1:
-                num_p1 = st.number_input("Số câu TN Phần I:", min_value=1, max_value=30, value=def_p1)
+                num_p1 = st.number_input("Số câu TN P.I:", min_value=1, max_value=30, value=def_p1)
             with c_cnt2:
-                num_p2 = st.number_input("Số câu Đúng/Sai Phần II:", min_value=1, max_value=10, value=def_p2)
+                num_p2 = st.number_input("Số câu Đ/S P.II:", min_value=1, max_value=10, value=def_p2)
             with c_cnt3:
-                num_p3 = st.number_input("Số câu TL Ngắn Phần III:", min_value=0, max_value=10, value=def_p3)
+                num_p3 = st.number_input("Số câu TLN P.III:", min_value=0, max_value=10, value=def_p3)
                 
             exam_time_mins = st.selectbox(
                 "⏱️ Thời lượng bài thi (Phút):", 
@@ -1729,7 +1747,7 @@ with tab3:
             )
             st.session_state.exam_time_mins = exam_time_mins
             
-            if st.button("🚀 Khởi tạo đề thi chuẩn cấu trúc 2026", width="stretch"):
+            if st.button("🚀 Khởi tạo đề thi chuẩn cấu trúc 2026", type="primary", width="stretch"):
                 st.session_state.exam_code = str(random.randint(1011, 9999))
                 st.session_state.violation_count = 0
                 st.session_state.exam_start_timestamp = time.time()
@@ -1797,19 +1815,22 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                     except Exception as e:
                         st.error(f"Lỗi khởi tạo đề thi: {e}")
 
-        with col_ex2:
-            st.markdown("#### 📋 Bareme Điểm Chuẩn & Quy Chế Khảo Thí 2026 (Bộ GD&ĐT):")
-            st.markdown(f"""
-            - **Mã đề 4 chữ số:** Tự động sinh ngẫu nhiên chuẩn Bộ GD&ĐT (VD: `1012`, `2048`).
-            - **Phần I (Trắc nghiệm 4 lựa chọn):** Đánh giá năng lực Nhận biết & Thông hiểu.
-            - **Phần II (Trắc nghiệm Đúng/Sai - 4 lệnh ý a, b, c, d):**
-              - *Đúng 1 ý:* **0.1** điểm
-              - *Đúng 2 ý:* **0.25** điểm
-              - *Đúng 3 ý:* **0.5** điểm
-              - *Đúng 4 ý:* **1.0** điểm trọn vẹn
-            - **Phần III (Trả lời ngắn):** Điền số chính xác, đánh giá Vận dụng cao.
-            - **Đồng hồ đếm ngược & Giám sát Check Var:** Hệ thống tự động đếm ngược thời gian và phát hiện gian lận khi học sinh chuyển tab. Vi phạm 3 lần sẽ bị khóa bài và chấm 0.0 điểm!
-            """)
+            # CARD QUY CHUẨN KHẢO THÍ SƯ PHẠM LẤP ĐẦY KHÔNG GIAN BÊN PHẢI (ZERO KHOẢNG TRỐNG THỪA)
+            st.markdown("""
+            <div style="background: rgba(15, 23, 42, 0.75); border: 1.2px solid #334155; border-radius: 10px; padding: 14px 16px; margin-top: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                <div style="color: #38bdf8; font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    📋 Quy Chế Khảo Thí & Bareme Điểm Bộ GD&ĐT 2026:
+                </div>
+                <div style="color: #cbd5e1; font-size: 13px; line-height: 1.65;">
+                    • <b>Phần I (Trắc nghiệm 4 lựa chọn):</b> Đánh giá năng lực Nhận biết & Thông hiểu.<br>
+                    • <b>Phần II (Trắc nghiệm Đúng/Sai 4 ý a, b, c, d):</b><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;▫ Đúng 1 ý: <b>0.1đ</b> &nbsp;|&nbsp; Đúng 2 ý: <b>0.25đ</b><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;▫ Đúng 3 ý: <b>0.5đ</b> &nbsp;|&nbsp; Đúng 4 ý: <b>1.0đ trọn vẹn</b><br>
+                    • <b>Phần III (Trả lời ngắn):</b> Điền số chính xác, đánh giá Vận dụng cao.<br>
+                    • <b>Giám Sát Check Var Anti-Cheat:</b> Tự động đếm ngược thời gian thực và ghi nhận vi phạm khi chuyển tab. Vi phạm 3 lần sẽ bị khóa bài và chấm 0.0 điểm!
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     elif st.session_state.exam_state == "testing":
         exam = st.session_state.exam_data
         st.markdown(f"### 📋 ĐỀ KHẢO THÍ MÔN {subject.upper()} - KHỐI LỚP {grade_num}")
