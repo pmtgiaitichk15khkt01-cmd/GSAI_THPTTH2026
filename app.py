@@ -649,24 +649,72 @@ def build_exam_exports(exam, subject_name, grade_name, duration, include_answers
     markup = "<!doctype html><html><head><meta charset='utf-8'><title>Đề luyện tập</title><style>body{font:16px serif;max-width:850px;margin:30px auto;padding:20px}article{break-inside:avoid;margin-bottom:20px}td,th{padding:6px}svg{max-width:100%}@media print{button{display:none}}</style></head><body><button onclick='window.print()'>In / lưu PDF</button>"+"\n".join(blocks)+"</body></html>"
     return markup, "\n".join(tex)
 
-# BỘ PHÂN TÍCH JSON BẢO VỆ CHỐNG LỖI ESCAPE LATEX (INVALID \ESCAPE)
+# BỘ PHÂN TÍCH JSON BẢO VỆ CHỐNG LỖI ESCAPE LATEX (INVALID \ESCAPE) VÀ TỰ ĐỘNG VÁ LỖI
 def safe_json_loads(raw):
     if not isinstance(raw, str) or not raw.strip():
         raise ValueError("AI không trả nội dung JSON.")
-    value = raw.strip()
-    if value.startswith("```"):
-        value = re.sub(r"^```(?:json)?\s*", "", value, flags=re.IGNORECASE)
-        value = re.sub(r"\s*```$", "", value)
+    s = raw.strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+        s = re.sub(r"\s*```$", "", s)
+
+    # Pass 1: Thử parse trực tiếp với strict=False
     try:
-        return json.loads(value)
-    except json.JSONDecodeError as original:
-        # LaTeX such as \sqrt may contain invalid single JSON escapes.
-        # Do not rewrite valid \n, \t, \u or escaped quotation marks.
-        repaired = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', value)
-        try:
-            return json.loads(repaired)
-        except json.JSONDecodeError:
-            raise ValueError(f"JSON của AI chưa hợp lệ tại dòng {original.lineno}, cột {original.colno}. Hãy giảm số câu hoặc tạo lại đề.") from original
+        return json.loads(s, strict=False)
+    except Exception:
+        pass
+
+    # Pass 2: Xóa dấu phẩy thừa trước ngoặc đóng (trailing comma)
+    s_clean = re.sub(r',\s*([\]\}])', r'\1', s)
+    try:
+        return json.loads(s_clean, strict=False)
+    except Exception:
+        pass
+
+    # Pass 3: Sửa lỗi escape LaTeX đặc thù (các lệnh LaTeX bắt đầu bằng b, f, t, u...)
+    # Trong JSON chuẩn: \b, \f, \t, \u là mã thoát, nhưng trong LaTeX: \frac, \beta, \times, \underline...
+    s_fixed = re.sub(r'\\(frac|beta|begin|bar|binom|bmatrix|mathbf|bullet|times|tau|theta|tan|text|tilde|to|top|triangle|underline|bigcup|uparrow)', r'\\\\\1', s_clean)
+    # Sửa \u không theo sau bởi 4 ký tự hex
+    s_fixed = re.sub(r'\\u(?![0-9a-fA-F]{4})', r'\\\\u', s_fixed)
+    # Sửa toàn bộ backslash đơn lẻ không phải thoát hợp lệ
+    s_fixed = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', s_fixed)
+    try:
+        return json.loads(s_fixed, strict=False)
+    except Exception:
+        pass
+
+    # Pass 4: Toàn lực sửa backslash - biến mọi \ không đi kèm " thành \\
+    s_fixed2 = re.sub(r'(?<!\\)\\(?![\"])', r'\\\\', s)
+    s_fixed2 = re.sub(r',\s*([\]\}])', r'\1', s_fixed2)
+    try:
+        return json.loads(s_fixed2, strict=False)
+    except Exception:
+        pass
+
+    # Pass 5: Tự động đóng ngoặc nếu AI bị cắt ngắn do giới hạn token
+    open_curly = s_fixed2.count('{') - s_fixed2.count('}')
+    open_square = s_fixed2.count('[') - s_fixed2.count(']')
+    s_trunc = s_fixed2.rstrip().rstrip(',')
+    if open_square > 0: s_trunc += ']' * open_square
+    if open_curly > 0: s_trunc += '}' * open_curly
+    try:
+        return json.loads(s_trunc, strict=False)
+    except Exception:
+        pass
+
+    # Pass 6: Fallback dùng ast.literal_eval nếu AI trả nháy đơn '...'
+    try:
+        import ast
+        return ast.literal_eval(s)
+    except Exception:
+        pass
+
+    # Pass 7: Lọc bỏ ký tự điều khiển lạ
+    cleaned = re.sub(r'[\x00-\x1f\x7f-\x9f]', lambda m: ' ' if m.group(0) not in '\r\n\t' else m.group(0), s_fixed2)
+    try:
+        return json.loads(cleaned, strict=False)
+    except Exception as original:
+        raise ValueError(f"Không thể phân tích dữ liệu JSON từ AI: {original}. Hãy bấm thử lại để AI tái tạo đề thi.") from original
 
 # ==============================================================================
 # 6. PHÒNG LAB LAI & BỘ LỌC AN TOÀN AST
@@ -3525,6 +3573,8 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
             print_html, latex_code = build_exam_exports(exam, subject, grade, st.session_state.get("exam_time_mins", 45), include_answers)
             st.download_button("Tải bản in HTML (mở để In / lưu PDF)", print_html, f"De_{ex_code}.html", "text/html")
             st.download_button("Tải nguồn LaTeX", latex_code, f"De_{ex_code}.tex", "text/plain")
+            with st.expander("📦 Xem và Sao chép mã nguồn LaTeX / TikZ Overleaf (Click để mở rộng / thu gọn)", expanded=False):
+                st.code(latex_code, language="latex")
             st.download_button("Tải đề JSON (đầy đủ dữ liệu đồ thị)", json.dumps(exam, ensure_ascii=False, indent=2), f"De_{ex_code}.json", "application/json")
             st.caption("HTML và LaTeX dựng đồ thị từ hệ số của đề. Công thức HTML ở dạng văn bản LaTeX; dùng nguồn .tex để biên dịch toán. Kiểm tra bản in trước khi dùng.")
         except ValueError as exc:
