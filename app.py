@@ -372,6 +372,34 @@ def call_gemini_with_fallback(prompt_or_contents, system_instruction=None, json_
     status_box.update(label="Tất cả các kết nối hiện đang quá tải. Hãy nghỉ ngơi 1 phút nhé!", state="error")
     raise Exception(f"Hệ thống đang quá tải. Lỗi kỹ thuật: {last_error_msg}")
 
+# BỘ PHÂN TÍCH JSON BẢO VỆ CHỐNG LỖI ESCAPE LATEX (INVALID \ESCAPE)
+def safe_json_loads(raw):
+    if not raw: return {}
+    raw_str = str(raw).strip()
+    if raw_str.startswith("```json"): raw_str = raw_str[7:-3].strip()
+    elif raw_str.startswith("```"): raw_str = raw_str[3:-3].strip()
+
+    try:
+        return json.loads(raw_str, strict=False)
+    except Exception:
+        pass
+
+    try:
+        fixed = re.sub(r'\\([a-zA-Z\(\)\[\]\{\}\^\+\-\*\/\<\>\=\!\,\.\:\;\|])', r'\\\\\1', raw_str)
+        return json.loads(fixed, strict=False)
+    except Exception:
+        pass
+
+    try:
+        fixed2 = re.sub(r'(?<!\\)\\(?!["\\])', r'\\\\', raw_str)
+        return json.loads(fixed2, strict=False)
+    except Exception:
+        pass
+
+    fixed3 = re.sub(r'\\', r'\\\\', raw_str)
+    fixed3 = re.sub(r'\\\\"', r'\"', fixed3)
+    return json.loads(fixed3, strict=False)
+
 # ==============================================================================
 # 6. PHÒNG LAB LAI & BỘ LỌC AN TOÀN AST
 # ==============================================================================
@@ -2936,7 +2964,7 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                         raw_json_ex = raw_json_ex.strip()
                         if raw_json_ex.startswith("```json"): raw_json_ex = raw_json_ex[7:-3].strip()
                         elif raw_json_ex.startswith("```"): raw_json_ex = raw_json_ex[3:-3].strip()
-                        st.session_state.exam_data = enrich_exam_data(json.loads(raw_json_ex))
+                        st.session_state.exam_data = enrich_exam_data(safe_json_loads(raw_json_ex))
                         st.session_state.exam_state = "testing"
                         st.session_state.exam_answers = {}
                         st.session_state.tram3_chat_messages = []
@@ -3800,7 +3828,8 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 """
         latex_code += r"""\end{document}"""
 
-        st.code(latex_code, language="latex")
+        with st.expander("📄 Xem & Sao chép mã nguồn LaTeX Overleaf (Click để mở rộng / thu gọn)", expanded=False):
+            st.code(latex_code, language="latex")
         st.download_button("📥 Tải tệp .tex cho Overleaf (Chuẩn Form Bộ GD&ĐT 2026)", data=latex_code, file_name=f"DeThi_{subject}_Lop{grade_num}_MaDe{ex_code}.tex", mime="text/plain")
 
         # GIA SƯ SOCRATIC TƯƠNG TÁC SAU THI TẠI TRẠM 3
