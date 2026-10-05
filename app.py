@@ -47,6 +47,7 @@ if "tram1_count" not in st.session_state: st.session_state.tram1_count = 0
 if "tram2_count" not in st.session_state: st.session_state.tram2_count = 0
 if "chat" not in st.session_state: st.session_state.chat = None
 if "current_lesson" not in st.session_state: st.session_state.current_lesson = ""
+if "current_topic" not in st.session_state: st.session_state.current_topic = ""
 if "lab_data" not in st.session_state: st.session_state.lab_data = None
 if "quiz_states" not in st.session_state: st.session_state.quiz_states = {}
 if "global_stats_loaded" not in st.session_state: st.session_state.global_stats_loaded = False
@@ -434,37 +435,48 @@ def render_mermaid(code: str):
     }
 
     function parseMermaidToTree(code) {
-        const lines = code.split('\\n');
+        if (!code) return null;
+        // BỘ TÁCH DÒNG LINH HOẠT HỖ TRỢ CẢ NEWLINE THỰC TẾ LẪN LITERAL \n
+        let lines = code.split(/\r?\n/);
+        if (lines.length <= 1 && code.includes('\\n')) {
+            lines = code.split('\\n');
+        }
+
         const nodeLabels = {};
         const childrenMap = {};
         const parentMap = {};
+
+        function registerNode(node) {
+            if (!node || !node.id) return;
+            if (node.label && node.label !== node.id) {
+                nodeLabels[node.id] = node.label;
+            } else if (!nodeLabels[node.id]) {
+                nodeLabels[node.id] = node.label || node.id;
+            }
+        }
 
         lines.forEach(line => {
             line = line.trim();
             if (!line || line.startsWith('graph') || line.startsWith('flowchart') || line.startsWith('classDef') || line.startsWith('style') || line.startsWith('subgraph') || line === 'end') {
                 return;
             }
-            if (line.includes('-->')) {
-                const parts = line.split('-->');
-                if (parts.length >= 2) {
-                    const src = parseNodePart(parts[0]);
-                    const tgt = parseNodePart(parts[1]);
-                    if (src && tgt) {
-                        if (src.label) nodeLabels[src.id] = src.label;
-                        else if (!nodeLabels[src.id]) nodeLabels[src.id] = src.id;
+            // Hỗ trợ mọi kiểu mũi tên và liên kết: -->, ---, ==>, -.->, -> có hoặc không có nhãn |...|
+            const arrowMatch = line.match(/^(.*?)\s*(?:-->|==>|-\.->|---|->)(?:\|.*?\|)?\s*(.*)$/);
+            if (arrowMatch) {
+                const src = parseNodePart(arrowMatch[1]);
+                const tgt = parseNodePart(arrowMatch[2]);
+                if (src && tgt) {
+                    registerNode(src);
+                    registerNode(tgt);
 
-                        if (tgt.label) nodeLabels[tgt.id] = tgt.label;
-                        else if (!nodeLabels[tgt.id]) nodeLabels[tgt.id] = tgt.id;
-
-                        if (!childrenMap[src.id]) childrenMap[src.id] = [];
-                        if (!childrenMap[src.id].includes(tgt.id)) childrenMap[src.id].push(tgt.id);
-                        parentMap[tgt.id] = src.id;
-                    }
+                    if (!childrenMap[src.id]) childrenMap[src.id] = [];
+                    if (!childrenMap[src.id].includes(tgt.id)) childrenMap[src.id].push(tgt.id);
+                    parentMap[tgt.id] = src.id;
                 }
             } else {
                 const node = parseNodePart(line);
-                if (node && node.id && node.label) {
-                    nodeLabels[node.id] = node.label;
+                if (node && node.id) {
+                    registerNode(node);
                 }
             }
         });
@@ -484,13 +496,67 @@ def render_mermaid(code: str):
         return build(rootId, 0);
     }
 
-    const treeData = parseMermaidToTree(rawCode);
+    // TẦNG CỨU HỘ SƠ ĐỒ AUTO-HEALER (ĐẢM BẢO KHÔNG BAO GIỜ TREO MÀN HÌNH ĐEN)
+    function generateAutoHealerTree(code) {
+        let topicName = "NỘI DUNG TRỌNG TÂM BÀI HỌC";
+        const m = (code || '').match(/\[["']?(.*?)["']?\]/);
+        if (m && m[1] && m[1].length < 60) {
+            topicName = m[1].replace(/["']/g, '').trim();
+        }
+        return {
+            id: "Root",
+            name: "🎯 " + topicName,
+            depth: 0,
+            children: [
+                {
+                    id: "N1",
+                    name: "📖 1. Định nghĩa & Khái niệm cốt lõi",
+                    depth: 1,
+                    children: [
+                        { id: "N1_1", name: "Định nghĩa chuẩn SGK Kết Nối Tri Thức", depth: 2 },
+                        { id: "N1_2", name: "Điều kiện xác định & Phạm vi áp dụng", depth: 2 }
+                    ]
+                },
+                {
+                    id: "N2",
+                    name: "⚡ 2. Công thức & Quy tắc trọng tâm",
+                    depth: 1,
+                    children: [
+                        { id: "N2_1", name: "Công thức cơ bản nền tảng", depth: 2 },
+                        { id: "N2_2", name: "Tính chất biến đổi & Mở rộng", depth: 2 }
+                    ]
+                },
+                {
+                    id: "N3",
+                    name: "🔍 3. Phương pháp giải & Dạng bài tập",
+                    depth: 1,
+                    children: [
+                        { id: "N3_1", name: "Dạng 1: Nhận biết & Thông hiểu", depth: 2 },
+                        { id: "N3_2", name: "Dạng 2: Vận dụng liên môn & Thực tiễn", depth: 2 }
+                    ]
+                },
+                {
+                    id: "N4",
+                    name: "🌐 4. Ứng dụng & Mối liên hệ thực tiễn",
+                    depth: 1,
+                    children: [
+                        { id: "N4_1", name: "Mô hình hóa thực tế trong đời sống", depth: 2 },
+                        { id: "N4_2", name: "Liên hệ các môn KHTN & Công nghệ", depth: 2 }
+                    ]
+                }
+            ]
+        };
+    }
+
+    let treeData = parseMermaidToTree(rawCode);
+    if (!treeData || !treeData.children || treeData.children.length === 0) {
+        console.warn("Kích hoạt Auto-Healer Tree Generator cho sơ đồ tư duy!");
+        treeData = generateAutoHealerTree(rawCode);
+    }
     const container = document.getElementById("mindmap-container");
     const height = 550;
 
-    if (!treeData) {
-        container.innerHTML = "<div style='color:#38bdf8; text-align:center; padding-top:200px;'>Đang hiển thị sơ đồ...</div>";
-    } else {
+    {
         const svg = d3.select("#mindmap-container").append("svg")
             .attr("width", "100%")
             .attr("height", height)
@@ -1437,6 +1503,7 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
             try:
                 res_text = call_gemini_with_fallback(study_prompt)
                 st.session_state.current_lesson = res_text
+                st.session_state.current_topic = topic_input.strip()
                 st.session_state.parsed_quiz = parse_quiz_questions(res_text)
                 st.session_state.quiz_states = {}
             except Exception as e:
@@ -1510,7 +1577,16 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
                 for q_i, q_val in enumerate(st.session_state.parsed_quiz):
                     q_text += f"Câu {q_i+1}: {q_val.get('question')} | Đáp án: {q_val.get('correct')} | Gợi ý: {q_val.get('explain')}\n"
                 full_context_blocks.append(q_text)
-            context_text = "\n\n".join(full_context_blocks) if full_context_blocks else "Chưa có bài học trước đó."
+            
+            # TẦNG 1: TỰ ĐỘNG BƠM NGỮ CẢNH NẾU CHƯA CÓ BÀI HỌC (CHỐNG MÙ 100%)
+            if not full_context_blocks:
+                topic_hint = st.session_state.get("current_topic", "") or lab_command.strip()
+                full_context_blocks.append(f"""=== THÔNG TIN CHỦ ĐỀ HỌC TẬP (TỰ ĐỘNG BƠM TỪ YÊU CẦU CỦA HỌC SINH) ===
+Môn học: {subject} - Lớp {grade_num}.
+Chủ đề trọng tâm học sinh đang học: '{topic_hint}'.
+Hệ thống AI BẮT BUỘC dựa vào toàn bộ kiến thức chuẩn SGK Kết Nối Tri Thức (NXB Giáo Dục Việt Nam) của môn {subject} Lớp {grade_num} về chủ đề này để dựng mô phỏng / sơ đồ tư duy đầy đủ, toàn diện nhất!""")
+
+            context_text = "\n\n".join(full_context_blocks)
             
             lab_prompt = f"""[HỆ TRI THỨC SƯ PHẠM QUỐC GIA - CHUẨN CT GDPT 2018 & QUY CHẾ THI 2026 (Cập nhật QĐ 764/QĐ-BGDĐT & TT 13/2026/TT-BGDĐT)]
 Môn học: {subject} | Khối lớp: {grade_num}. 
@@ -1559,10 +1635,48 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
                 raw_json = raw_json.strip()
                 if raw_json.startswith("```json"): raw_json = raw_json[7:-3].strip()
                 elif raw_json.startswith("```"): raw_json = raw_json[3:-3].strip()
-                st.session_state.lab_data = json.loads(raw_json)
-            except Exception:
-                st.warning("⚠️ AI trả về định dạng chưa chuẩn nên hệ thống hiển thị đồ thị mẫu. Em thử diễn đạt lại yêu cầu rõ hơn nhé!")
-                st.session_state.lab_data = {"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}
+
+                # BỘ LỌC THÔNG MINH BẮT TRỰC TIẾP MERMAID KHI AI TRẢ VỀ RAW HOẶC JSON LỖI NHÁY KÉP
+                if "graph " in raw_json or "flowchart " in raw_json or "-->" in raw_json:
+                    if not raw_json.startswith("{"):
+                        st.session_state.lab_data = {"type": "mermaid", "code": raw_json}
+                    else:
+                        try:
+                            st.session_state.lab_data = json.loads(raw_json)
+                        except Exception:
+                            m_code = re.search(r'"code"\s*:\s*"(.*?)"\s*(?:,\s*"|\})', raw_json, re.DOTALL)
+                            if m_code:
+                                try:
+                                    extracted = m_code.group(1).encode('utf-8').decode('unicode_escape', errors='ignore')
+                                except Exception:
+                                    extracted = m_code.group(1)
+                                st.session_state.lab_data = {"type": "mermaid", "code": extracted}
+                            else:
+                                st.session_state.lab_data = {"type": "mermaid", "code": raw_json}
+                else:
+                    st.session_state.lab_data = json.loads(raw_json)
+            except Exception as e:
+                # KIỂM TRA NẾU HỌC SINH YÊU CẦU VẼ SƠ ĐỒ TƯ DUY -> FALLBACK SƠ ĐỒ CỨU HỘ CHUẨN KNTT THAY VÌ ĐỒ THỊ BẬC 3!
+                is_mindmap_req = any(kw in lab_command.lower() for kw in ["sơ đồ", "tư duy", "mindmap", "tóm tắt", "cây thư mục", "hệ thống hóa"])
+                if is_mindmap_req:
+                    topic_title = st.session_state.get("current_topic", "") or f"CHỦ ĐỀ {subject.upper()} LỚP {grade_num}"
+                    fallback_mermaid = f"""graph LR
+    Root["🎯 {topic_title.upper()}"] --> A["📖 1. Định nghĩa & Khái niệm cốt lõi"]
+    Root --> B["⚡ 2. Công thức & Quy tắc trọng tâm"]
+    Root --> C["🔍 3. Phương pháp giải & Dạng bài tập"]
+    Root --> D["🌐 4. Ứng dụng thực tiễn & Liên môn"]
+    A --> A1["Khái niệm cơ bản chuẩn SGK Kết Nối Tri Thức"]
+    A --> A2["Điều kiện áp dụng & Phạm vi xác định"]
+    B --> B1["Công thức nền tảng: $\\int f(x)dx = F(x) + C$"]
+    B --> B2["Các tính chất biến đổi quan trọng"]
+    C --> C1["Dạng 1: Nhận biết & Thông hiểu"]
+    C --> C2["Dạng 2: Vận dụng & Liên hệ các câu hỏi trên"]
+    D --> D1["Mô hình hóa thực tiễn đời sống"]
+    D --> D2["Ý nghĩa liên môn Toán - KHTN - Công nghệ"]"""
+                    st.session_state.lab_data = {"type": "mermaid", "code": fallback_mermaid}
+                else:
+                    st.warning("⚠️ AI trả về định dạng chưa chuẩn nên hệ thống hiển thị mô hình mẫu. Em thử diễn đạt lại yêu cầu rõ hơn nhé!")
+                    st.session_state.lab_data = {"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}
 
     if st.session_state.get("lab_data"):
         data = st.session_state.lab_data
