@@ -586,7 +586,7 @@ def render_mermaid(code: str):
             .attr("width", "100%")
             .attr("height", height)
             .attr("id", "svg-mindmap-element")
-            .style("user-select", "none");
+            .style("user-select", "text");
 
         const g = svg.append("g");
 
@@ -664,11 +664,36 @@ def render_mermaid(code: str):
 
             const node = g.selectAll("g.node").data(nodes, d => d.id || (d.id = ++i));
 
+            // HÀM PHÁT ÂM TIẾNG ANH CHO TỪNG NODE TRONG SƠ ĐỒ TƯ DUY
+            function speakMindmapText(rawName) {
+                if (!rawName || !window.speechSynthesis) return;
+                // Làm sạch markdown và KaTeX LaTeX
+                let clean = rawName.replace(/<[^>]*>/g, '').replace(/\$[^$]*\$/g, '').replace(/[#*`_~\[\]()]/g, ' ').trim();
+                clean = clean.replace(/^[0-9\.\-\:\)]\s*/, '').trim();
+                // Bỏ qua nếu có dấu tiếng Việt
+                const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+                if (viRegex.test(clean) || !/[a-zA-Z]/.test(clean) || clean.length < 2) return;
+                try {
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(clean);
+                    u.lang = 'en-US';
+                    u.rate = 0.92;
+                    const voices = window.speechSynthesis.getVoices() || [];
+                    const v = voices.find(vo => vo.lang.startsWith('en') && (vo.name.includes('Google') || vo.name.includes('Natural') || vo.name.includes('Jenny') || vo.name.includes('Guy') || vo.name.includes('US') || vo.name.includes('Samantha') || vo.name.includes('Aria'))) || voices.find(vo => vo.lang.startsWith('en'));
+                    if (v) u.voice = v;
+                    window.speechSynthesis.speak(u);
+                } catch(err) {
+                    console.warn("Mindmap TTS speak error:", err);
+                }
+            }
+
             const nodeEnter = node.enter().append("g")
                 .attr("class", "node")
                 .attr("transform", d => `translate(${source.y0},${source.x0})`)
                 .style("cursor", "pointer")
                 .on("click", (event, d) => {
+                    // Tự động phát âm nếu nhãn là tiếng Anh
+                    speakMindmapText(d.data.name);
                     if (d.children) {
                         d._children = d.children;
                         d.children = null;
@@ -704,7 +729,7 @@ def render_mermaid(code: str):
                 .attr("width", d => d.boxWidth - 28)
                 .attr("height", d => d.boxHeight)
                 .style("overflow", "visible")
-                .style("pointer-events", "none");
+                .style("pointer-events", "auto");
 
             fo.append("xhtml:div")
                 .style("color", "#ffffff")
@@ -713,6 +738,12 @@ def render_mermaid(code: str):
                 .style("line-height", "42px")
                 .style("white-space", "nowrap")
                 .style("overflow", "visible")
+                .style("user-select", "text")
+                .style("cursor", "pointer")
+                .on("dblclick", (event, d) => {
+                    event.stopPropagation();
+                    speakMindmapText(d.data.name);
+                })
                 .html(d => renderLabelWithKaTeX(d.data.name));
 
             const nodeUpdate = node.merge(nodeEnter).transition().duration(350)
@@ -1283,9 +1314,9 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 24px;">🎧</span>
                 <div>
-                    <div style="color: #38bdf8; font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">TÍNH NĂNG LUYỆN PHÁT ÂM BẢN NGỮ (SELECT-TO-SPEAK • CHUẨN MỸ IELTS / TOEFL)</div>
+                    <div style="color: #38bdf8; font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">TÍNH NĂNG LUYỆN PHÁT ÂM BẢN NGỮ (CLICK & SELECT-TO-SPEAK • CHUẨN MỸ IELTS / TOEFL)</div>
                     <div style="color: #cbd5e1; font-size: 13px; margin-top: 2px;">
-                        💡 <b>Hướng dẫn học sinh:</b> Hãy <b>dùng chuột bôi đen (tô đen)</b> bất kỳ từ vựng, cụm từ, câu ví dụ hoặc phương án trắc nghiệm tiếng Anh nào trên màn hình ➔ <b>Gia Sư AI tự động phát âm chuẩn bản ngữ tức thì!</b>
+                        💡 <b>Hướng dẫn học sinh:</b> <b>Click vào bất kỳ phương án trắc nghiệm A, B, C, D</b>, nhãn nút bấm hoặc <b>sơ đồ tư duy D3.js</b>, hoặc <b>dùng chuột bôi đen (tô đen)</b> bất kỳ cụm từ tiếng Anh nào ➔ <b>Gia Sư AI tự động phát âm chuẩn bản ngữ tức thì!</b>
                     </div>
                 </div>
             </div>
@@ -1333,7 +1364,40 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
             toast.style.display = "block";
             setTimeout(() => {{
                 if (toast) toast.style.display = "none";
-            }}, 3000);
+            }}, 3200);
+        }}
+
+        function speakEnglishText(text) {{
+            if (!text) return;
+            text = text.trim();
+            // Loại bỏ tiền tố trắc nghiệm A., B., C., D. hoặc A), B) và các ký hiệu markdown
+            text = text.replace(/^[A-Da-d][\\.\\:\\)]\\s*/, '').replace(/[\\*\\#\\`\\_\\~\\[\\]\\(\\)]/g, ' ').trim();
+            if (!text || text.length < 2 || text.length > 350) return;
+
+            // Bộ lọc ngôn ngữ: Bỏ qua nếu là câu tiếng Việt có dấu
+            const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+            if (viRegex.test(text)) return;
+
+            // Bắt buộc phải có chữ cái tiếng Anh
+            if (!/[a-zA-Z]/.test(text)) return;
+
+            // Chống phát âm lặp trong 1.0 giây
+            const now = Date.now();
+            if (text.toLowerCase() === lastSpoken.toLowerCase() && (now - lastSpeakTime) < 1000) return;
+            lastSpoken = text;
+            lastSpeakTime = now;
+
+            if (window.speechSynthesis) {{
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'en-US';
+                u.rate = currentRate;
+                u.pitch = 1.0;
+                const voice = getBestEnglishVoice();
+                if (voice) u.voice = voice;
+                window.speechSynthesis.speak(u);
+                showSpeakToast(text);
+            }}
         }}
 
         function handleSelectionToSpeak() {{
@@ -1342,51 +1406,85 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
                 const sel = targetDoc.getSelection();
                 if (!sel) return;
                 let text = sel.toString().trim();
-                if (!text || text.length < 2 || text.length > 250) return;
-
-                // Loại bỏ tiền tố trắc nghiệm A., B., C., D. và các ký tự markdown
-                text = text.replace(/^[A-Da-d][\\.\\:\\)]\\s*/, '').replace(/[\\*\\#\\`\\_\\~\\[\\]\\(\\)]/g, ' ').trim();
-                if (!text || text.length < 2) return;
-
-                // Bộ lọc ngôn ngữ: Bỏ qua nếu là câu tiếng Việt có dấu để tránh phát âm lơ lớ
-                const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
-                if (viRegex.test(text)) return;
-
-                // Bắt buộc phải có chữ cái tiếng Anh
-                if (!/[a-zA-Z]/.test(text)) return;
-
-                // Chống phát âm trùng lặp trong 1.2 giây
-                const now = Date.now();
-                if (text.toLowerCase() === lastSpoken.toLowerCase() && (now - lastSpeakTime) < 1200) return;
-                lastSpoken = text;
-                lastSpeakTime = now;
-
-                if (window.speechSynthesis) {{
-                    window.speechSynthesis.cancel();
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'en-US';
-                    u.rate = currentRate;
-                    u.pitch = 1.0;
-                    const voice = getBestEnglishVoice();
-                    if (voice) u.voice = voice;
-                    window.speechSynthesis.speak(u);
-                    showSpeakToast(text);
-                }}
+                speakEnglishText(text);
             }} catch(e) {{
                 console.warn("Select-to-speak error:", e);
             }}
         }}
 
-        // Lắng nghe sự kiện bôi đen từ học sinh trên toàn trang (kể cả bài giảng và 4 phương án trắc nghiệm)
+        // BẮT SỰ KIỆN CLICK VÀO CÁC NÚT ĐÁP ÁN TRẮC NGHIỆM STREAMLIT & BUTTONS
+        function handleElementClickToSpeak(event) {{
+            try {{
+                const el = event.target;
+                if (!el) return;
+
+                // 1. Kiểm tra nếu học sinh click vào phương án trắc nghiệm Streamlit (label radio, span, p)
+                const radioLabel = el.closest('label[data-baseweb="radio"]') || el.closest('[data-testid="stRadio"] label');
+                if (radioLabel) {{
+                    const labelText = radioLabel.innerText || radioLabel.textContent || "";
+                    if (labelText) {{
+                        speakEnglishText(labelText);
+                        return;
+                    }}
+                }}
+
+                // 2. Kiểm tra nếu học sinh click vào button Streamlit chứa tiếng Anh
+                const btn = el.closest('button');
+                if (btn) {{
+                    const btnText = btn.innerText || btn.textContent || "";
+                    speakEnglishText(btnText);
+                    return;
+                }}
+
+                // 3. Kiểm tra nếu học sinh click vào badge/tag tiếng Anh
+                const badge = el.closest('.badge-tag, .stMarkdown strong, .stMarkdown em');
+                if (badge) {{
+                    const bText = badge.innerText || badge.textContent || "";
+                    speakEnglishText(bText);
+                    return;
+                }}
+            }} catch(e) {{
+                console.warn("Click-to-speak error:", e);
+            }}
+        }}
+
+        // TIÊM CSS MỞ KHÓA SELECTION CHO TOÀN BỘ NÚT & RADIO TRÊN STREAMLIT
+        try {{
+            const targetDoc = window.parent.document || document;
+            let styleEl = targetDoc.getElementById("english-tts-radio-style");
+            if (!styleEl) {{
+                styleEl = targetDoc.createElement("style");
+                styleEl.id = "english-tts-radio-style";
+                styleEl.textContent = `
+                    label[data-baseweb="radio"], [data-testid="stRadio"] label, [data-testid="stRadio"] div {{
+                        user-select: text !important;
+                        -webkit-user-select: text !important;
+                        cursor: pointer !important;
+                    }}
+                    label[data-baseweb="radio"]:hover {{
+                        color: #38bdf8 !important;
+                    }}
+                `;
+                targetDoc.head.appendChild(styleEl);
+            }}
+        }} catch(e) {{
+            console.warn("CSS inject error:", e);
+        }}
+
+        // LẮNG NGHE SỰ KIỆN BÔI ĐEN VÀ CLICK ĐÁP ÁN TRẮC NGHIỆM TRÊN TOÀN GIAO DIỆN
         try {{
             const targetDoc = window.parent.document || document;
             targetDoc.removeEventListener("mouseup", handleSelectionToSpeak);
             targetDoc.removeEventListener("touchend", handleSelectionToSpeak);
+            targetDoc.removeEventListener("click", handleElementClickToSpeak);
+            
             targetDoc.addEventListener("mouseup", handleSelectionToSpeak);
             targetDoc.addEventListener("touchend", handleSelectionToSpeak);
+            targetDoc.addEventListener("click", handleElementClickToSpeak, true);
         }} catch(e) {{
             document.addEventListener("mouseup", handleSelectionToSpeak);
             document.addEventListener("touchend", handleSelectionToSpeak);
+            document.addEventListener("click", handleElementClickToSpeak, true);
         }}
 
         if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {{
