@@ -591,30 +591,46 @@ def render_mermaid(code: str):
             });
         }
 
+        // BỘ ĐO CHIỀU RỘNG THỰC TẾ OFF-SCREEN CHO KATEX VÀ TIẾNG VIỆT
+        let measureBox = document.getElementById("mindmap-measure-box");
+        if (!measureBox) {
+            measureBox = document.createElement("div");
+            measureBox.id = "mindmap-measure-box";
+            measureBox.style.cssText = "position:absolute; visibility:hidden; top:-9999px; left:-9999px; white-space:nowrap; font-family:system-ui,-apple-system,sans-serif;";
+            document.body.appendChild(measureBox);
+        }
+
+        function getPreciseNodeWidth(text, depth) {
+            if (!text) return 90;
+            measureBox.style.fontSize = depth === 0 ? "13.5px" : "12.5px";
+            measureBox.style.fontWeight = depth === 0 ? "800" : "600";
+            measureBox.innerHTML = renderLabelWithKaTeX(text);
+            const rect = measureBox.getBoundingClientRect();
+            const measuredW = Math.ceil(rect.width || measureBox.offsetWidth || (text.length * 8));
+            // Padding chuẩn xác: 26px cho icon tròn + 18px lề phải + 4px co giãn = 48px
+            return Math.max(90, measuredW + 48);
+        }
+
         let i = 0;
         function update(source) {
             const treeInfo = treeLayout(root);
             const nodes = treeInfo.descendants();
             const links = treeInfo.links();
 
-            // Tính toán trước kích thước hộp dựa trên độ dài nội dung và công thức KaTeX
+            // Tính toán kích thước hộp chuẩn xác 100% dựa trên KaTeX render thực tế (ôm sát nội dung)
             const maxWByDepth = {};
             nodes.forEach(d => {
-                const charLen = (d.data.name || '').length;
-                let estimatedW = Math.ceil(charLen * 8.5);
-                if (d.data.name && d.data.name.includes('$')) {
-                    estimatedW = Math.max(estimatedW, 140);
-                }
-                d.boxWidth = Math.max(85, Math.min(380, estimatedW + 45));
+                d.boxWidth = getPreciseNodeWidth(d.data.name, d.depth);
                 d.boxHeight = 42;
                 if (!maxWByDepth[d.depth] || d.boxWidth > maxWByDepth[d.depth]) {
                     maxWByDepth[d.depth] = d.boxWidth;
                 }
             });
 
+            // Tọa độ X của từng level dựa trên độ rộng lớn nhất của cột trước đó
             const depthX = [35];
-            for (let dep = 1; dep <= 10; dep++) {
-                depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 130) + 55;
+            for (let dep = 1; dep <= 12; dep++) {
+                depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 120) + 55;
             }
 
             nodes.forEach(d => { 
@@ -659,9 +675,9 @@ def render_mermaid(code: str):
             // HIỂN THỊ NỘI DUNG QUA FOREIGNOBJECT (NHÚNG HTML KATEX CHUẨN XÁC 100%)
             const fo = nodeEnter.append("foreignObject")
                 .attr("x", 26)
-                .attr("y", -20)
-                .attr("width", d => d.boxWidth - 30)
-                .attr("height", d => d.boxHeight - 2)
+                .attr("y", -21)
+                .attr("width", d => d.boxWidth - 28)
+                .attr("height", d => d.boxHeight)
                 .style("overflow", "visible")
                 .style("pointer-events", "none");
 
@@ -669,28 +685,16 @@ def render_mermaid(code: str):
                 .style("color", "#ffffff")
                 .style("font-size", d => d.depth === 0 ? "13.5px" : "12.5px")
                 .style("font-weight", d => d.depth === 0 ? "800" : "600")
-                .style("line-height", "40px")
+                .style("line-height", "42px")
                 .style("white-space", "nowrap")
-                .style("overflow", "hidden")
-                .style("text-overflow", "ellipsis")
+                .style("overflow", "visible")
                 .html(d => renderLabelWithKaTeX(d.data.name));
-
-            // ĐO TỌA ĐỘ VÀ ĐỘ RỘNG THỰC TẾ SAU KHI RENDER KATEX ĐỂ CO GIÃN HỘP HOÀN HẢO
-            nodeEnter.each(function(d) {
-                const divEl = d3.select(this).select("div").node();
-                if (divEl) {
-                    const scrollW = divEl.scrollWidth;
-                    if (scrollW > 0) {
-                        d.boxWidth = Math.max(d.boxWidth, Math.min(480, scrollW + 38));
-                    }
-                }
-            });
 
             const nodeUpdate = node.merge(nodeEnter).transition().duration(350)
                 .attr("transform", d => `translate(${d.y},${d.x})`);
 
             nodeUpdate.select("rect").attr("width", d => d.boxWidth);
-            nodeUpdate.select("foreignObject").attr("width", d => d.boxWidth - 30);
+            nodeUpdate.select("foreignObject").attr("width", d => d.boxWidth - 28);
             nodeUpdate.select("circle")
                 .style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569"));
 
@@ -1625,9 +1629,14 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
 9. SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (CHO TẤT CẢ CÁC MÔN VÀ CÁC KHỐI LỚP 6-12 CHUẨN KNTT):
    QUY CHUẨN SƠ ĐỒ BẮT BUỘC:
    - ĐỘ SÂU & TOÀN DIỆN: Phải tóm tắt ĐẦY ĐỦ VÀ SÂU SẮC toàn bộ kiến thức cốt lõi, công thức, định lý ở bài học phía trên. Tối thiểu 3-5 nhánh chính cấp 1, mỗi nhánh chính bắt buộc có 2-4 nhánh con chi tiết. Tuyệt đối không vẽ sơ sài 1-2 nhánh!
+   - NGUYÊN TẮC GỌN GÀNG - MỖI NHÁNH CON 1 CÔNG THỨC: Tuyệt đối KHÔNG gộp nhiều công thức dài vào chung 1 ô làm dài dòng. Tách rõ ràng từng nhánh con riêng biệt, ví dụ:
+     + Nhánh 1: A1[\"Cận trùng nhau: $\\int_a^a f(x)dx = 0$\"]
+     + Nhánh 2: A2[\"Đổi cận đảo dấu: $\\int_a^b f(x)dx = -\\int_b^a f(x)dx$\"]
+     + Nhánh 3: A3[\"Tính cộng đoạn: $\\int_a^b f(x)dx + \\int_b^c f(x)dx = \\int_a^c f(x)dx$\"]
+   - TOÀN VẸN CÔNG THỨC TOÁN HỌC: Mọi công thức PHẢI có ĐẦY ĐỦ hàm số f(x)dx, dấu phép tính (đặc biệt là dấu trừ - trong công thức đổi cận) và các cận a, b. TUYỆT ĐỐI NGHIÊM CẤM VIẾT TẮT DẤU BA CHẤM '...' TRONG CÔNG THỨC TOÁN!
    - CÔNG THỨC TOÁN / KHTN: Mọi công thức toán (tích phân, nguyên hàm, đạo hàm, diện tích, thể tích, phân số, cận [a, b]...) PHẢI BỌC TRONG DẤU $...$ chuẩn LaTeX (ví dụ: $\\int_a^b f(x)dx = F(b)-F(a)$, $S = \\int_a^b |f(x)|dx$, $V = \\pi \\int_a^b [f(x)]^2 dx$).
    - LIÊN KẾT BÀI TẬP: Nếu học sinh yêu cầu sơ đồ kèm ví dụ/câu hỏi ở trên, trích xuất nhánh con nối trực tiếp với ví dụ/câu hỏi đó!
-   Mẫu chuẩn: {{"type": "mermaid", "code": "graph LR\\n   Root[\\\"🎯 TIÊU ĐỀ CHỦ ĐỀ CHÍNH\\\"] --> A[\\\"1. Nhánh trọng tâm 1\\\"]\\n   Root --> B[\\\"2. Nhánh trọng tâm 2\\\"]\\n   Root --> C[\\\"3. Nhánh trọng tâm 3\\\"]\\n   A --> A1[\\\"Công thức/Định nghĩa: $công_thức_latex$\\\"]\\n   A --> A2[\\\"Tính chất chi tiết 1.2\\\"]\\n   B --> B1[\\\"Nội dung trọng tâm 2.1\\\"]\\n   B --> B2[\\\"Ví dụ vận dụng 2.2\\\"]\\n   C --> C1[\\\"Ứng dụng thực tiễn 3.1\\\"]"}}
+   Mẫu chuẩn: {{\"type\": \"mermaid\", \"code\": \"graph LR\\n   Root[\\\"🎯 TIÊU ĐỀ CHỦ ĐỀ CHÍNH\\\"] --> A[\\\"1. Khái niệm trọng tâm\\\"]\\n   Root --> B[\\\"2. Các tính chất cơ bản\\\"]\\n   Root --> C[\\\"3. Ứng dụng thực tiễn\\\"]\\n   A --> A1[\\\"Định nghĩa: $\\\\int_a^b f(x)dx = F(b)-F(a)$\\\"]\\n   B --> B1[\\\"Cận trùng nhau: $\\\\int_a^a f(x)dx = 0$\\\"]\\n   B --> B2[\\\"Đổi cận đảo dấu: $\\\\int_a^b f(x)dx = -\\\\int_b^a f(x)dx$\\\"]\\n   B --> B3[\\\"Tính cộng đoạn: $\\\\int_a^b f(x)dx + \\\\int_b^c f(x)dx = \\\\int_a^c f(x)dx$\\\"]\\n   C --> C1[\\\"Diện tích hình phẳng: $S = \\\\int_a^b |f(x)|dx$\\\"]\\n   C --> C2[\\\"Thể tích tròn xoay: $V = \\\\pi \\\\int_a^b [f(x)]^2 dx$\\\"]\"}}
 """
 
             try:
