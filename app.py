@@ -333,6 +333,7 @@ NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CT GDPT 2018:
    - 100% ngữ liệu ĐỌC HIỂU và VIẾT BẮT BUỘC lấy từ tác phẩm văn học, báo chí, đời sống bên ngoài SGK (không lấy bài có sẵn trong SGK), chuẩn ma trận đề thi tốt nghiệp THPT 2025-2026.
 4. MÔN TIẾNG ANH:
    - Bám sát chuẩn khung năng lực ngoại ngữ 6 bậc VN / CEFR (A2/B1/B2) và định dạng đề thi THPT 2026.
+   - TUYỆT ĐỐI BẮT BUỘC: Toàn bộ từ vựng, đoạn văn, câu hỏi trắc nghiệm, các lựa chọn đáp án (A, B, C, D), và bài tập ngữ pháp PHẢI ĐƯỢC VIẾT 100% BẰNG TIẾNG ANH. Chỉ dùng tiếng Việt khi giải thích hoặc phân tích phương pháp giải.
 5. QUY TẮC CÔNG THỨC TOÁN:
    - TUYỆT ĐỐI KHÔNG bọc chữ tiếng Việt có dấu trong dấu $...$. Dấu $...$ chỉ dùng cho công thức toán ($x$, $f(x)$)."""
 
@@ -666,24 +667,10 @@ def render_mermaid(code: str):
 
             // HÀM PHÁT ÂM TIẾNG ANH CHO TỪNG NODE TRONG SƠ ĐỒ TƯ DUY
             function speakMindmapText(rawName) {
-                if (!rawName || !window.speechSynthesis) return;
-                // Làm sạch markdown và KaTeX LaTeX
-                let clean = rawName.replace(/<[^>]*>/g, '').replace(/\$[^$]*\$/g, '').replace(/[#*`_~\[\]()]/g, ' ').trim();
-                clean = clean.replace(/^[0-9\.\-\:\)]\s*/, '').trim();
-                // Bỏ qua nếu có dấu tiếng Việt
-                const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
-                if (viRegex.test(clean) || !/[a-zA-Z]/.test(clean) || clean.length < 2) return;
-                try {
-                    window.speechSynthesis.cancel();
-                    const u = new SpeechSynthesisUtterance(clean);
-                    u.lang = 'en-US';
-                    u.rate = 0.92;
-                    const voices = window.speechSynthesis.getVoices() || [];
-                    const v = voices.find(vo => vo.lang.startsWith('en') && (vo.name.includes('Google') || vo.name.includes('Natural') || vo.name.includes('Jenny') || vo.name.includes('Guy') || vo.name.includes('US') || vo.name.includes('Samantha') || vo.name.includes('Aria'))) || voices.find(vo => vo.lang.startsWith('en'));
-                    if (v) u.voice = v;
-                    window.speechSynthesis.speak(u);
-                } catch(err) {
-                    console.warn("Mindmap TTS speak error:", err);
+                if (window.parent && window.parent.speakEnglishText) {
+                    window.parent.speakEnglishText(rawName);
+                } else {
+                    console.warn("Mindmap TTS: window.parent.speakEnglishText not available.");
                 }
             }
 
@@ -1329,7 +1316,7 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
         window.speakEnglishText = function(text) {{
             if (!text || !window.speechSynthesis) return;
             text = text.trim();
-            text = text.replace(/^[A-Da-d][.:)]\s*/, '').replace(/[*#`_~\[\]()]/g, ' ').trim();
+            text = text.replace(/^[A-Da-d][.:)]\\s*/, '').replace(/[*#`_~\\[\\]()]/g, ' ').trim();
             if (!text || text.length < 2 || text.length > 350) return;
 
             const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
@@ -1369,6 +1356,15 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
             try {{
                 const el = event.target;
                 if (!el) return;
+
+                const customBtn = el.closest('.custom-speak-btn');
+                if (customBtn) {{
+                    const hiddenSpan = customBtn.querySelector('.hidden-speak-text');
+                    if (hiddenSpan && hiddenSpan.innerText && window.speakEnglishText) {{
+                        return window.speakEnglishText(hiddenSpan.innerText);
+                    }}
+                }}
+
                 const radioLabel = el.closest('label[data-baseweb="radio"]') || el.closest('[data-testid="stRadio"] label');
                 if (radioLabel) {{
                     const labelText = radioLabel.innerText || radioLabel.textContent || "";
@@ -1379,6 +1375,7 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
 
         try {{
             const targetDoc = window.parent.document || document;
+            if (window.parent) window.parent.speakEnglishText = window.speakEnglishText;
             targetDoc.addEventListener("mouseup", handleSelectionToSpeak);
             targetDoc.addEventListener("touchend", handleSelectionToSpeak);
             targetDoc.addEventListener("click", handleElementClickToSpeak, true);
@@ -1488,8 +1485,9 @@ def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject
                     <span style="color: #94a3b8; font-size: 12px; margin-left: 6px;">{v_ipa}</span>:
                     <span style="color: #cbd5e1; font-size: 12.5px; font-style: italic; margin-left: 4px;">{v_meaning}</span>
                 </div>
-                <button onclick="window.speakEnglishText && window.speakEnglishText('{v_word}')" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer;">
+                <button class="custom-speak-btn" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer;">
                     🔊 Đọc
+                    <span style="display:none;" class="hidden-speak-text">{v_word}</span>
                 </button>
             </div>
             """
@@ -1500,8 +1498,9 @@ def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject
         <div style="background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; margin-top: 4px;">
             <div style="color: #e2e8f0; font-size: 13.5px; line-height: 1.6; font-style: italic;">"{unit_info['passage']}"</div>
             <div style="text-align: right; margin-top: 8px;">
-                <button onclick="window.speakEnglishText && window.speakEnglishText(this.getAttribute('data-text'))" data-text="{unit_info['passage']}" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #ffffff; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                <button class="custom-speak-btn" data-text="{unit_info['passage']}" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #ffffff; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
                     🔊 Đọc cả đoạn văn
+                    <span style="display:none;" class="hidden-speak-text">{unit_info['passage']}</span>
                 </button>
             </div>
         </div>
@@ -1516,8 +1515,9 @@ def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject
         <div style="background: rgba(30, 41, 59, 0.95); border: 1.5px solid #38bdf8; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                 <div style="color: #38bdf8; font-weight: 800; font-size: 13px;">🤖 CÂU HỎI PHẢN XẠ CỦA GIA SƯ AI:</div>
-                <button onclick="window.speakEnglishText && window.speakEnglishText(this.getAttribute('data-text'))" data-text="{unit_info['q_reflex']}" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                <button class="custom-speak-btn" data-text="{unit_info['q_reflex']}" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer;">
                     🔊 Nghe phát âm
+                    <span style="display:none;" class="hidden-speak-text">{unit_info['q_reflex']}</span>
                 </button>
             </div>
             <div style="color: #ffffff; font-size: 13.5px; font-weight: 600; margin-top: 6px; line-height: 1.5;">"{unit_info['q_reflex']}"</div>
@@ -1577,7 +1577,8 @@ def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject
                             const targetDoc = window.parent.document || document;
                             const textareas = targetDoc.querySelectorAll('textarea');
                             for (let ta of textareas) {{
-                                if (ta.placeholder && ta.placeholder.includes('English')) {{
+                                const pText = (ta.placeholder || ta.getAttribute('aria-label') || '').toLowerCase();
+                                if (pText.includes('english')) {{
                                     ta.value = str;
                                     ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
                                     ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
@@ -1741,6 +1742,7 @@ YÊU CẦU PHÁP LÝ & HỌC THUẬT BẮT BUỘC:
    - HÓA HỌC & KHTN: DÙNG 100% DANH PHÁP QUỐC TẾ IUPAC.
    - NGỮ VĂN: Tiếp cận theo ĐẶC TRƯNG THỂ LOẠI. TUYỆT ĐỐI KHÔNG phân tích cơ học bổ dọc. Ngữ liệu ngoài SGK.
    - VẬT LÝ & SINH HỌC: Tuân thủ đúng bản chất hiện tượng, chuẩn SI.
+   - TIẾNG ANH: TUYỆT ĐỐI BẮT BUỘC toàn bộ từ vựng, đoạn văn, câu hỏi trắc nghiệm, các phương án A/B/C/D, và bài tập ngữ pháp phải viết 100% bằng TIẾNG ANH. Chỉ dùng tiếng Việt khi giải thích hoặc gợi ý tư duy Socratic.
 2. QUY ĐỊNH CẤU TRÚC KỸ THUẬT:
    - BBT: DÙNG BẢNG MARKDOWN TIÊU CHUẨN. (Sử dụng \\nearrow, \\searrow, || cho tiệm cận đứng).
    - ĐỒ THỊ: Mô tả bằng lời, ghi chú: "(Kéo xuống Phòng Lab ảo bên dưới để trực quan hóa nhé!)".
@@ -2117,7 +2119,7 @@ Cuối phản hồi PHẢI có khối JSON:
                     status.style.color = '#34d399';
                     try {{
                         const targetDoc = window.parent.document || document;
-                        const chatInput = targetDoc.querySelector('[data-testid="stChatInput"] textarea');
+                        const chatInput = targetDoc.querySelector('textarea[data-testid="stChatInputTextArea"]') || targetDoc.querySelector('[data-testid="stChatInput"] textarea');
                         if (chatInput) {{
                             chatInput.value = transcript;
                             chatInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
@@ -2577,6 +2579,7 @@ NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CHƯƠNG TRÌNH GDPT 2018 (SGK KẾT 
    - 100% sử dụng danh pháp quốc tế IUPAC theo chuẩn CT 2018 (Alkane, Alkene, Alkyne, Alcohol, Aldehyde, Carboxylic acid, Ester, Amine, Amino acid, Carbohydrate, Polymer...). TUYỆT ĐỐI KHÔNG dùng tên cũ (Ancol, Anđehit, Axit axetic, Benzen...).
 3. MÔN TIẾNG ANH:
    - Bám sát chuẩn khung năng lực ngoại ngữ 6 bậc VN / CEFR (A2/B1/B2) và cấu trúc đề thi THPT 2026.
+   - TUYỆT ĐỐI BẮT BUỘC: Toàn bộ từ vựng, đoạn văn, câu hỏi trắc nghiệm, và các phương án A/B/C/D PHẢI ĐƯỢC VIẾT 100% BẰNG TIẾNG ANH. Chỉ dùng tiếng Việt khi giải thích đáp án.
 4. ĐỊNH DẠNG CÔNG THỨC:
    - TUYỆT ĐỐI KHÔNG bọc chữ tiếng Việt có dấu trong dấu $...$. Dấu $...$ chỉ dùng cho công thức toán ($x$, $f(x)$).
    - KHÔNG mô tả bảng biến thiên bằng lời rườm rà trong 'q'.
