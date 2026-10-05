@@ -1276,52 +1276,49 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
     if subject_name != "Tiếng Anh":
         return
 
-    clean_txt = re.sub(r'```[\s\S]*?```', ' ', raw_text)
-    clean_txt = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', clean_txt)
-    clean_txt = re.sub(r'[\#\*\_\~\`\|]', ' ', clean_txt)
-    clean_txt = re.sub(r'\$([^\$]+)\$', r'\1', clean_txt)
-    clean_txt = re.sub(r'\s+', ' ', clean_txt).strip()
-    if not clean_txt:
-        return
-
-    safe_payload = json.dumps(clean_txt[:3500]).replace("</", "<\\/")
-    
     tts_html = f"""
-    <div style="margin: 12px 0; padding: 10px 14px; background: linear-gradient(145deg, #0f172a, #1e293b); border-radius: 12px; border: 1.5px solid #38bdf8; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2);">
-        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
-            <button id="btn_play_{comp_key}" onclick="playEnglishAudio_{comp_key}()" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; transition: all 0.2s ease; box-shadow: 0 2px 8px rgba(37,99,235,0.4);">
-                🔊 Listen to Native English Tutor (Standard Accent • IELTS/TOEFL)
-            </button>
-            <button id="btn_pause_{comp_key}" onclick="pauseResumeEnglishAudio_{comp_key}()" style="background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; display: none;">
-                ⏸ Pause
-            </button>
-            <button onclick="stopEnglishAudio_{comp_key}()" style="background: #1e293b; color: #f87171; border: 1px solid #7f1d1d; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
-                ⏹ Stop
-            </button>
+    <!-- KHUNG HƯỚNG DẪN SƯ PHẠM: SELECT-TO-SPEAK (TÔ ĐEN PHÁT ÂM CHUẨN MỸ) -->
+    <div style="margin: 14px 0; padding: 12px 16px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border-radius: 12px; border: 1.5px solid #38bdf8; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.25); font-family: system-ui, -apple-system, sans-serif;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">🎧</span>
+                <div>
+                    <div style="color: #38bdf8; font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">TÍNH NĂNG LUYỆN PHÁT ÂM BẢN NGỮ (SELECT-TO-SPEAK • CHUẨN MỸ IELTS / TOEFL)</div>
+                    <div style="color: #cbd5e1; font-size: 13px; margin-top: 2px;">
+                        💡 <b>Hướng dẫn học sinh:</b> Hãy <b>dùng chuột bôi đen (tô đen)</b> bất kỳ từ vựng, cụm từ, câu ví dụ hoặc phương án trắc nghiệm tiếng Anh nào trên màn hình ➔ <b>Gia Sư AI tự động phát âm chuẩn bản ngữ tức thì!</b>
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">Tốc độ:</span>
+                <select id="rate_select_{comp_key}" onchange="changeVoiceRate_{comp_key}(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                    <option value="0.85">0.85x (Chậm rõ luyện âm)</option>
+                    <option value="0.92" selected>0.92x (IELTS/TOEFL Chuẩn)</option>
+                    <option value="1.05">1.05x (Giao tiếp tự nhiên)</option>
+                </select>
+                <button onclick="stopVoice_{comp_key}()" style="background: #1e293b; color: #f87171; border: 1px solid #7f1d1d; padding: 4px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px;">
+                    ⏹ Dừng
+                </button>
+            </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">Speed:</span>
-            <select id="rate_select_{comp_key}" onchange="changeRate_{comp_key}(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-                <option value="0.85">0.85x (Study Pace)</option>
-                <option value="0.95" selected>0.95x (IELTS/TOEFL Standard)</option>
-                <option value="1.05">1.0x (Native Conversational)</option>
-            </select>
-            <span id="audio_status_{comp_key}" style="color: #38bdf8; font-size: 12px; font-weight: 600; margin-left: 4px;"></span>
-        </div>
+        <div id="speak_toast_{comp_key}" style="display: none; margin-top: 8px; padding: 6px 12px; background: rgba(56, 189, 248, 0.15); border: 1px dashed #38bdf8; border-radius: 8px; color: #38bdf8; font-size: 12.5px; font-weight: 600;"></div>
     </div>
+
     <script>
     (function() {{
-        let isSpeaking = false;
-        let isPaused = false;
-        let currentRate = 0.95;
-        let speechQueue = [];
-        let currentIndex = 0;
-        const text = {safe_payload};
+        let currentRate = 0.92;
+        let lastSpoken = "";
+        let lastSpeakTime = 0;
 
-        function splitIntoSentences(t) {{
-            const s = t.match(/[^.!?\\n]+[.!?\\n]+/g) || [t];
-            return s.map(x => x.trim()).filter(x => x.length > 0);
-        }}
+        window.changeVoiceRate_{comp_key} = function(val) {{
+            currentRate = parseFloat(val);
+        }};
+
+        window.stopVoice_{comp_key} = function() {{
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            const toast = document.getElementById("speak_toast_{comp_key}");
+            if (toast) toast.style.display = "none";
+        }};
 
         function getBestEnglishVoice() {{
             const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
@@ -1329,90 +1326,68 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
                    voices.find(v => v.lang.startsWith('en')) || null;
         }}
 
-        window.playEnglishAudio_{comp_key} = function() {{
-            if (!window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
-            speechQueue = splitIntoSentences(text);
-            currentIndex = 0;
-            isSpeaking = true;
-            isPaused = false;
-
-            const btnPause = document.getElementById("btn_pause_{comp_key}");
-            if (btnPause) {{ btnPause.style.display = "inline-block"; btnPause.innerText = "⏸ Pause"; }}
-            const statusEl = document.getElementById("audio_status_{comp_key}");
-            if (statusEl) statusEl.innerText = "Playing audio...";
-
-            speakNext();
-        }};
-
-        function speakNext() {{
-            if (!isSpeaking || currentIndex >= speechQueue.length) {{
-                window.stopEnglishAudio_{comp_key}();
-                const statusEl = document.getElementById("audio_status_{comp_key}");
-                if (statusEl) statusEl.innerText = "Completed!";
-                return;
-            }}
-
-            const sentence = speechQueue[currentIndex];
-            const u = new SpeechSynthesisUtterance(sentence);
-            u.lang = 'en-US';
-            u.rate = currentRate;
-            u.pitch = 1.0;
-
-            const bestVoice = getBestEnglishVoice();
-            if (bestVoice) u.voice = bestVoice;
-
-            u.onend = function() {{
-                currentIndex++;
-                speakNext();
-            }};
-            u.onerror = function(err) {{
-                console.warn("TTS error:", err);
-                currentIndex++;
-                speakNext();
-            }};
-
-            const statusEl = document.getElementById("audio_status_{comp_key}");
-            if (statusEl) statusEl.innerText = "Playing (" + (currentIndex + 1) + "/" + speechQueue.length + ")...";
-
-            window.speechSynthesis.speak(u);
+        function showSpeakToast(word) {{
+            const toast = document.getElementById("speak_toast_{comp_key}");
+            if (!toast) return;
+            toast.innerText = "🔊 Gia Sư AI đang phát âm chuẩn: \\"" + word + "\\"";
+            toast.style.display = "block";
+            setTimeout(() => {{
+                if (toast) toast.style.display = "none";
+            }}, 3000);
         }}
 
-        window.pauseResumeEnglishAudio_{comp_key} = function() {{
-            if (!window.speechSynthesis || !isSpeaking) return;
-            const btnPause = document.getElementById("btn_pause_{comp_key}");
-            const statusEl = document.getElementById("audio_status_{comp_key}");
-            if (!isPaused) {{
-                window.speechSynthesis.pause();
-                isPaused = true;
-                if (btnPause) btnPause.innerText = "▶️ Resume";
-                if (statusEl) statusEl.innerText = "Paused";
-            }} else {{
-                window.speechSynthesis.resume();
-                isPaused = false;
-                if (btnPause) btnPause.innerText = "⏸ Pause";
-                if (statusEl) statusEl.innerText = "Playing (" + (currentIndex + 1) + "/" + speechQueue.length + ")...";
-            }}
-        }};
+        function handleSelectionToSpeak() {{
+            try {{
+                const targetDoc = window.parent.document || document;
+                const sel = targetDoc.getSelection();
+                if (!sel) return;
+                let text = sel.toString().trim();
+                if (!text || text.length < 2 || text.length > 250) return;
 
-        window.stopEnglishAudio_{comp_key} = function() {{
-            if (window.speechSynthesis) window.speechSynthesis.cancel();
-            isSpeaking = false;
-            isPaused = false;
-            currentIndex = 0;
-            const btnPause = document.getElementById("btn_pause_{comp_key}");
-            if (btnPause) btnPause.style.display = "none";
-            const statusEl = document.getElementById("audio_status_{comp_key}");
-            if (statusEl) statusEl.innerText = "";
-        }};
+                // Loại bỏ tiền tố trắc nghiệm A., B., C., D. và các ký tự markdown
+                text = text.replace(/^[A-Da-d][\\.\\:\\)]\\s*/, '').replace(/[\\*\\#\\`\\_\\~\\[\\]\\(\\)]/g, ' ').trim();
+                if (!text || text.length < 2) return;
 
-        window.changeRate_{comp_key} = function(val) {{
-            currentRate = parseFloat(val);
-            if (isSpeaking && !isPaused) {{
-                window.speechSynthesis.cancel();
-                speakNext();
+                // Bộ lọc ngôn ngữ: Bỏ qua nếu là câu tiếng Việt có dấu để tránh phát âm lơ lớ
+                const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+                if (viRegex.test(text)) return;
+
+                // Bắt buộc phải có chữ cái tiếng Anh
+                if (!/[a-zA-Z]/.test(text)) return;
+
+                // Chống phát âm trùng lặp trong 1.2 giây
+                const now = Date.now();
+                if (text.toLowerCase() === lastSpoken.toLowerCase() && (now - lastSpeakTime) < 1200) return;
+                lastSpoken = text;
+                lastSpeakTime = now;
+
+                if (window.speechSynthesis) {{
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(text);
+                    u.lang = 'en-US';
+                    u.rate = currentRate;
+                    u.pitch = 1.0;
+                    const voice = getBestEnglishVoice();
+                    if (voice) u.voice = voice;
+                    window.speechSynthesis.speak(u);
+                    showSpeakToast(text);
+                }}
+            }} catch(e) {{
+                console.warn("Select-to-speak error:", e);
             }}
-        }};
+        }}
+
+        // Lắng nghe sự kiện bôi đen từ học sinh trên toàn trang (kể cả bài giảng và 4 phương án trắc nghiệm)
+        try {{
+            const targetDoc = window.parent.document || document;
+            targetDoc.removeEventListener("mouseup", handleSelectionToSpeak);
+            targetDoc.removeEventListener("touchend", handleSelectionToSpeak);
+            targetDoc.addEventListener("mouseup", handleSelectionToSpeak);
+            targetDoc.addEventListener("touchend", handleSelectionToSpeak);
+        }} catch(e) {{
+            document.addEventListener("mouseup", handleSelectionToSpeak);
+            document.addEventListener("touchend", handleSelectionToSpeak);
+        }}
 
         if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {{
             window.speechSynthesis.onvoiceschanged = function() {{
@@ -1422,7 +1397,7 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
     }})();
     </script>
     """
-    components.html(tts_html, height=65)
+    components.html(tts_html, height=88)
 
 # ==============================================================================
 # BO CONG CU NHAN DIEN GIONG NOI SPEECH-TO-TEX & DANH GIA TIENG ANH CHUAN IELTS/TOEFL
@@ -1699,6 +1674,7 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
 9. SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (CHO TẤT CẢ CÁC MÔN VÀ CÁC KHỐI LỚP 6-12 CHUẨN KNTT):
    QUY CHUẨN SƠ ĐỒ BẮT BUỘC:
    - ĐỘ SÂU & TOÀN DIỆN: Phải tóm tắt ĐẦY ĐỦ VÀ SÂU SẮC toàn bộ kiến thức cốt lõi, công thức, định lý ở bài học phía trên. Tối thiểu 3-5 nhánh chính cấp 1, mỗi nhánh chính bắt buộc có 2-4 nhánh con chi tiết. Tuyệt đối không vẽ sơ sài 1-2 nhánh!
+   - HỖ TRỢ ĐA NGÔN NGỮ (VIỆT - ANH): Học sinh có thể ra lệnh bằng Tiếng Việt hoặc Tiếng Anh (Ví dụ: 'summarize', 'mindmap', 'key vocabulary', 'grammar', 'draw a mindmap about...'). Khi môn học là Tiếng Anh, sơ đồ tư duy phải được trình bày chuẩn phong cách Tiếng Anh học thuật CEFR/IELTS, các nhánh từ vựng kèm loại từ (n, v, adj) và câu ví dụ ngữ cảnh rõ ràng.
    - NGUYÊN TẮC GỌN GÀNG - MỖI NHÁNH CON 1 CÔNG THỨC: Tuyệt đối KHÔNG gộp nhiều công thức dài vào chung 1 ô làm dài dòng. Tách rõ ràng từng nhánh con riêng biệt, ví dụ:
      + Nhánh 1: A1[\"Cận trùng nhau: $\\int_a^a f(x)dx = 0$\"]
      + Nhánh 2: A2[\"Đổi cận đảo dấu: $\\int_a^b f(x)dx = -\\int_b^a f(x)dx$\"]
@@ -1736,17 +1712,35 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
                     st.session_state.lab_data = json.loads(raw_json)
             except Exception as e:
                 # KIỂM TRA NẾU HỌC SINH YÊU CẦU VẼ SƠ ĐỒ TƯ DUY -> FALLBACK SƠ ĐỒ CỨU HỘ CHUẨN KNTT THAY VÌ ĐỒ THỊ BẬC 3!
-                is_mindmap_req = any(kw in lab_command.lower() for kw in ["sơ đồ", "tư duy", "mindmap", "tóm tắt", "cây thư mục", "hệ thống hóa"])
+                is_mindmap_req = any(kw in lab_command.lower() for kw in [
+                    "sơ đồ", "tư duy", "mindmap", "tóm tắt", "cây thư mục", "hệ thống hóa",
+                    "mind map", "diagram", "summarize", "summary", "tree", "vocabulary", "grammar"
+                ])
                 if is_mindmap_req:
                     topic_title = st.session_state.get("current_topic", "") or f"CHỦ ĐỀ {subject.upper()} LỚP {grade_num}"
-                    fallback_mermaid = f"""graph LR
+                    if subject == "Tiếng Anh":
+                        fallback_mermaid = f"""graph LR
+    Root["🎯 {topic_title.upper()}"] --> A["📖 1. Key Vocabulary (Từ vựng cốt lõi)"]
+    Root --> B["⚡ 2. Core Grammar (Ngữ pháp trọng tâm)"]
+    Root --> C["🔍 3. Reading & Language Skills"]
+    Root --> D["🌐 4. IELTS / TOEFL Speaking & Usage"]
+    A --> A1["Topic Vocabulary & Phonetics"]
+    A --> A2["Collocations & Phrasal Verbs"]
+    B --> B1["Sentence Structures & Rules"]
+    B --> B2["Common Errors to Avoid"]
+    C --> C1["Main Ideas & Key Details"]
+    C --> C2["Contextual Comprehension"]
+    D --> D1["Natural Intonation & Fluency"]
+    D --> D2["Practical Daily Communication"]"""
+                    else:
+                        fallback_mermaid = f"""graph LR
     Root["🎯 {topic_title.upper()}"] --> A["📖 1. Định nghĩa & Khái niệm cốt lõi"]
     Root --> B["⚡ 2. Công thức & Quy tắc trọng tâm"]
     Root --> C["🔍 3. Phương pháp giải & Dạng bài tập"]
     Root --> D["🌐 4. Ứng dụng thực tiễn & Liên môn"]
     A --> A1["Khái niệm cơ bản chuẩn SGK Kết Nối Tri Thức"]
     A --> A2["Điều kiện áp dụng & Phạm vi xác định"]
-    B --> B1["Công thức nền tảng: $\\int f(x)dx = F(x) + C$"]
+    B --> B1["Công thức nền tảng"]
     B --> B2["Các tính chất biến đổi quan trọng"]
     C --> C1["Dạng 1: Nhận biết & Thông hiểu"]
     C --> C2["Dạng 2: Vận dụng & Liên hệ các câu hỏi trên"]
