@@ -2290,6 +2290,188 @@ BIGDATA_CURRICULUM = {
         12: ["Chuyên đề 1: Địa lý tự nhiên Việt Nam", "Chuyên đề 2: Địa lý dân cư & Đô thị hóa", "Chuyên đề 3: Địa lý các ngành kinh tế", "Chuyên đề 4: Địa lý các vùng kinh tế & Biển đảo"],
         11: ["Chuyên đề 1: Toàn cầu hóa kinh tế thế giới", "Chuyên đề 2: Địa lý EU, ASEAN, Mỹ Latinh", "Chuyên đề 3: Địa lý Hoa Kỳ, Nga, Nhật Bản, Trung Quốc"],
         10: ["Chuyên đề 1: Bản đồ, GPS, GIS", "Chuyên đề 2: Địa lý tự nhiên đại cương", "Chuyên đề 3: Địa lý dân cư & Kinh tế thế giới"]
+    },
+    "Tiếng Anh": {
+        12: [
+            "Chuyên đề 1: Life in the Future & Artificial Intelligence",
+            "Chuyên đề 2: World of Work & Lifelong Learning",
+            "Chuyên đề 3: Green Living & Environmental Protection",
+            "Chuyên đề 4: Urbanisation & Cultural Diversity",
+            "Chuyên đề 5: Grammar Master: Advanced Tenses, Inversion & Relative Clauses",
+            "Chuyên đề 6: Reading Comprehension & Vocabulary: THPT 2026 Format"
+        ],
+        11: [
+            "Chuyên đề 1: A Long and Healthy Life & Healthy Lifestyle",
+            "Chuyên đề 2: Generation Gap & Independent Life",
+            "Chuyên đề 3: Global Warming & Preserving Heritage",
+            "Chuyên đề 4: Education Pathways & Becoming Independent",
+            "Chuyên đề 5: Grammar: Linking Verbs, To-Infinitive & Gerunds",
+            "Chuyên đề 6: Communication Skills & Reading Skills"
+        ],
+        10: [
+            "Chuyên đề 1: Family Life & Humans and the Environment",
+            "Chuyên đề 2: Music, Community Services & Gender Equality",
+            "Chuyên đề 3: Inventions, Eco-Tourism & International Organisations",
+            "Chuyên đề 4: Grammar: Present Simple, Past Simple & Compound Sentences",
+            "Chuyên đề 5: Pronunciation & Listening Skills",
+            "Chuyên đề 6: Writing Skills & Guided Composition"
+        ],
+        9: [
+            "Chuyên đề 1: Local Community & City Life",
+            "Chuyên đề 2: Healthy Living & Life Skills",
+            "Chuyên đề 3: Wonders of Viet Nam & Tourism",
+            "Chuyên đề 4: English in the World & Natural Wonders",
+            "Chuyên đề 5: Grammar & Vocabulary for Grade 10 Entrance Exam"
+        ],
+        8: [
+            "Chuyên đề 1: Leisure Time & Life in the Countryside",
+            "Chuyên đề 2: Ethnic Groups of Viet Nam & Customs and Traditions",
+            "Chuyên đề 3: Our Customs & Festivals in Viet Nam",
+            "Chuyên đề 4: Science and Technology & Planet Earth",
+            "Chuyên đề 5: Grammar & Communication Practice"
+        ],
+        7: [
+            "Chuyên đề 1: Hobbies & Healthy Living",
+            "Chuyên đề 2: Community Service & Music and Arts",
+            "Chuyên đề 3: Food and Drink & Traffic",
+            "Chuyên đề 4: Films & Festival around the World",
+            "Chuyên đề 5: Grammar: Present Simple, Past Simple & Future Simple"
+        ],
+        6: [
+            "Chuyên đề 1: My New School & My Home",
+            "Chuyên đề 2: My Friends & My Neighbourhood",
+            "Chuyên đề 3: Natural Wonders of Viet Nam & Our Green Future",
+            "Chuyên đề 4: Television & Sports and Games",
+            "Chuyên đề 5: Cities of the World & Robots"
+        ]
+    },
+    "Tin học": {
+        12: [
+            "Chuyên đề 1: Mạng máy tính & Dịch vụ Internet nâng cao",
+            "Chuyên đề 2: Khoa học dữ liệu & Trí tuệ nhân tạo (AI)",
+            "Chuyên đề 3: Cơ sở dữ liệu và Hệ quản trị CSDL (SQL)",
+            "Chuyên đề 4: Lập trình web chuẩn CSS/HTML & JavaScript",
+            "Chuyên đề 5: An toàn thông tin & Đạo đức số"
+        ],
+        11: [
+            "Chuyên đề 1: Kiến trúc máy tính & Hệ điều hành",
+            "Chuyên đề 2: Mạng máy tính & Phần mềm ứng dụng",
+            "Chuyên đề 3: Lập trình Python cơ bản & Nâng cao",
+            "Chuyên đề 4: Cấu trúc dữ liệu & Thuật toán Python",
+            "Chuyên đề 5: Dự án phần mềm & Tư duy thuật toán"
+        ],
+        10: [
+            "Chuyên đề 1: Máy tính và Xã hội tri thức",
+            "Chuyên đề 2: Mạng máy tính và Internet",
+            "Chuyên đề 3: Đạo đức, pháp luật và văn hóa trong môi trường số",
+            "Chuyên đề 4: Ứng dụng tin học (Văn phòng & Thiết kế đồ họa)",
+            "Chuyên đề 5: Giải quyết vấn đề với sự trợ giúp của máy tính (Lập trình Python nhập môn)"
+        ],
+        9: [
+            "Chuyên đề 1: Máy tính và cộng đồng",
+            "Chuyên đề 2: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+            "Chuyên đề 3: Đạo đức, pháp luật và văn hóa trong môi trường số",
+            "Chuyên đề 4: Mạng xã hội và web",
+            "Chuyên đề 5: Giải thuật & Lập trình Scratch/Python"
+        ],
+        8: [
+            "Chuyên đề 1: Máy tính và thông tin",
+            "Chuyên đề 2: Mạng máy tính và Internet",
+            "Chuyên đề 3: Đạo đức, pháp luật và văn hóa số",
+            "Chuyên đề 4: Soạn thảo văn bản và Bảng tính nâng cao",
+            "Chuyên đề 5: Lập trình trực quan Scratch/Python"
+        ],
+        7: [
+            "Chuyên đề 1: Máy tính và thiết bị số",
+            "Chuyên đề 2: Phần mềm bảng tính Excel/Sheets",
+            "Chuyên đề 3: Quản lý tệp và thư mục",
+            "Chuyên đề 4: Tạo bài trình chiếu Powerpoint",
+            "Chuyên đề 5: Thuật toán và sơ đồ khối"
+        ],
+        6: [
+            "Chuyên đề 1: Thông tin và biểu diễn thông tin",
+            "Chuyên đề 2: Máy tính và mạng Internet",
+            "Chuyên đề 3: An toàn thông tin trên Internet",
+            "Chuyên đề 4: Sơ đồ tư duy và Soạn thảo văn bản cơ bản",
+            "Chuyên đề 5: Thuật toán đơn giản"
+        ]
+    },
+    "Giáo dục kinh tế và pháp luật": {
+        12: [
+            "Chuyên đề 1: Tăng trưởng và phát triển kinh tế",
+            "Chuyên đề 2: Hội nhập kinh tế quốc tế",
+            "Chuyên đề 3: Bảo hiểm và tín dụng",
+            "Chuyên đề 4: Quyền và nghĩa vụ của công dân về kinh tế",
+            "Chuyên đề 5: Quyền và nghĩa vụ của công dân về văn hóa, xã hội",
+            "Chuyên đề 6: Pháp luật về quốc phòng, an ninh"
+        ],
+        11: [
+            "Chuyên đề 1: Cung - cầu trong kinh tế thị trường",
+            "Chuyên đề 2: Lạm phát và thất nghiệp",
+            "Chuyên đề 3: Thị trường lao động và việc làm",
+            "Chuyên đề 4: Ý tưởng và kế hoạch kinh doanh",
+            "Chuyên đề 5: Quyền bình đẳng của công dân trước pháp luật",
+            "Chuyên đề 6: Một số quyền tự do cơ bản của công dân"
+        ],
+        10: [
+            "Chuyên đề 1: Nền kinh tế và các chủ thể kinh tế",
+            "Chuyên đề 2: Thị trường và cơ chế thị trường",
+            "Chuyên đề 3: Ngân sách nhà nước và thuế",
+            "Chuyên đề 4: Hệ thống chính trị Nước Cộng hòa xã hội chủ nghĩa Việt Nam",
+            "Chuyên đề 5: Hiến pháp Nước Cộng hòa xã hội chủ nghĩa Việt Nam"
+        ]
+    },
+    "Lịch sử & Địa lý": {
+        9: [
+            "Chuyên đề 1: Thế giới từ năm 1918 đến năm 1945 & Việt Nam hiện đại",
+            "Chuyên đề 2: Địa lý tự nhiên & Dân cư Việt Nam",
+            "Chuyên đề 3: Các ngành kinh tế & Vùng kinh tế Việt Nam",
+            "Chuyên đề 4: Khảo sát thực địa & Bản đồ số"
+        ],
+        8: [
+            "Chuyên đề 1: Châu Âu và Bắc Mỹ từ thế kỷ XVI đến thế kỷ XIX",
+            "Chuyên đề 2: Địa lý tự nhiên Việt Nam (Địa hình, Khoáng sản, Khí hậu, Thủy văn)",
+            "Chuyên đề 3: Phong trào Tây Sơn và Lịch sử Việt Nam thế kỷ XVIII",
+            "Chuyên đề 4: Thổ dưỡng và Sinh vật Việt Nam"
+        ],
+        7: [
+            "Chuyên đề 1: Tây Âu trung đại & Lịch sử Việt Nam từ thế kỷ X đến thế kỷ XVI",
+            "Chuyên đề 2: Địa lý Châu Âu & Châu Á",
+            "Chuyên đề 3: Địa lý Châu Phi & Châu Mỹ",
+            "Chuyên đề 4: Văn minh Đại Việt"
+        ],
+        6: [
+            "Chuyên đề 1: Vì sao phải học Lịch sử & Trái Đất - Hành tinh của Hệ Mặt Trời",
+            "Chuyên đề 2: Xã hội nguyên thủy & Các quốc gia cổ đại",
+            "Chuyên đề 3: Cấu tạo Trái Đất, Khí áp, Gió và Mưa",
+            "Chuyên đề 4: Nước trên Trái Đất & Đất, Sinh vật"
+        ]
+    },
+    "Giáo dục công dân": {
+        9: [
+            "Chuyên đề 1: Sống có lý tưởng & Lòng yêu nước",
+            "Chuyên đề 2: Trách nhiệm của thanh niên",
+            "Chuyên đề 3: Kỹ năng quản lý tài chính cá nhân",
+            "Chuyên đề 4: Thích ứng với thay đổi & Quyền con người"
+        ],
+        8: [
+            "Chuyên đề 1: Tự hào về truyền thống dân tộc",
+            "Chuyên đề 2: Tôn trọng sự đa dạng của các dân tộc",
+            "Chuyên đề 3: Lao động cần cù, sáng tạo",
+            "Chuyên đề 4: Phòng, chống tệ nạn xã hội & Bạo lực gia đình"
+        ],
+        7: [
+            "Chuyên đề 1: Tự hào về truyền thống quê hương",
+            "Chuyên đề 2: Quan tâm, cảm thông và chia sẻ",
+            "Chuyên đề 3: Học tập tự giác, tích cực",
+            "Chuyên đề 4: Quản lý tiền & Đòi hỏi quyền lợi chính đáng"
+        ],
+        6: [
+            "Chuyên đề 1: Yêu thương con người",
+            "Chuyên đề 2: Siêng năng, kiên trì",
+            "Chuyên đề 3: Tự lập",
+            "Chuyên đề 4: Tôn trọng sự thật"
+        ]
     }
 }
 
@@ -2677,9 +2859,9 @@ NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CHƯƠNG TRÌNH GDPT 2018 (SGK KẾT 
    - KHÔNG mô tả bảng biến thiên bằng lời rườm rà trong 'q'.
 5. HIỂN THỊ ĐỒ THỊ / BẢNG BIẾN THIÊN / BẢNG SỐ LIỆU GHÉP NHÓM:
    - CHỈ KHI NÀO CÂU HỎI BẮT BUỘC HỌC SINH QUAN SÁT/ĐỌC HÌNH VẼ, BẢNG BIẾN THIÊN HOẶC BẢNG SỐ LIỆU (ví dụ: 'Cho đồ thị hàm số y = f(x) như hình vẽ...', 'Cho bảng biến thiên như hình...', 'Cho mẫu số liệu ghép nhóm...'), AI MỚI SINH THUỘC TÍNH "f", "bbt" HOẶC "mslgn_data" TƯƠNG ỨNG ĐÚNG CHÍNH XÁC HÀM SỐ TRONG CÂU HỎI:
-     + "f": Object mô tả đúng đồ thị (ví dụ: {"type": "func_1_1", "a": 2, "b": -1, "c": 1, "d": 1} cho hàm y=(2x-1)/(x+1); {"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2} cho hàm y=x^3-3x^2+2; {"type": "func_2_1", "a": 1, "b": 0, "c": 1, "d": 1, "e": -1} cho hàm y=(x^2+1)/(x-1); {"type": "parabola", "a": 1, "b": -2, "c": -3} cho Parabol).
+     + "f": Object mô tả đúng đồ thị (ví dụ: {{"type": "func_1_1", "a": 2, "b": -1, "c": 1, "d": 1}} cho hàm y=(2x-1)/(x+1); {{"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}} cho hàm y=x^3-3x^2+2; {{"type": "func_2_1", "a": 1, "b": 0, "c": 1, "d": 1, "e": -1}} cho hàm y=(x^2+1)/(x-1); {{"type": "parabola", "a": 1, "b": -2, "c": -3}} cho Parabol).
      + "bbt": Chuỗi mô tả BBT chuẩn đúng theo câu hỏi (dạng "x | -inf | -1 | 2 | +inf \n y' | - | 0 | + | 0 | - \n y | +inf | ↘ | -2 | ↗ | 4 | ↘ | -inf").
-     + "mslgn_data": Object bảng ghép nhóm (ví dụ: {"title": "Bảng số liệu...", "groups": ["[0; 20)", "[20; 40)"], "freq": [5, 12]}).
+     + "mslgn_data": Object bảng ghép nhóm (ví dụ: {{"title": "Bảng số liệu...", "groups": ["[0; 20)", "[20; 40)"], "freq": [5, 12]}}).
    - NẾU CÂU HỎI LÀ DẠNG TÍNH TOÁN / CÔNG THỨC THUẦN TÚY (ví dụ: 'Đồ thị hàm số y = (2x-1)/(x+1) có tiệm cận đứng là...', 'Tìm số giao điểm...', 'Tính đạo hàm...', 'Phương trình có bao nhiêu nghiệm...'), TUYỆT ĐỐI KHÔNG SINH "f", "bbt" HAY "mslgn_data"!
 
 YÊU CẦU MA TRẬN:
