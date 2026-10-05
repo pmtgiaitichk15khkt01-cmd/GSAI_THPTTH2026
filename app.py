@@ -248,6 +248,31 @@ available_subjects = (
 )
 subject = st.sidebar.selectbox("📚 Môn học cần hỗ trợ:", available_subjects)
 
+# ==============================================================================
+# TỰ ĐỘNG ĐỒNG BỘ NGỮ CẢNH ĐA MÔN & XÓA SẠCH DỮ LIỆU CŨ KHI ĐỔI MÔN/LỚP
+# ==============================================================================
+current_context_key = f"{grade}_{subject}"
+previous_context_key = st.session_state.get("active_context_key")
+
+if previous_context_key is not None and previous_context_key != current_context_key:
+    # HỌC SINH VỪA ĐỔI MÔN HOẶC ĐỔI KHỐI LỚP TRÊN THANH BÊN
+    # RESET TRIỆT ĐỂ BỘ NHỚ CỦA MÔN CŨ ĐỂ KHÔNG BỊ TRỘN LẪN BÀI HỌC (CHỐNG RÂU ÔNG NỌ CẮM CẰM BÀ KIA)
+    st.session_state.current_lesson = ""
+    st.session_state.current_topic = ""
+    st.session_state.parsed_quiz = []
+    st.session_state.quiz_states = {}
+    st.session_state.lab_data = None
+    st.session_state.messages = []
+    st.session_state.chat = None
+    st.session_state.exam_data = None
+    st.session_state.exam_answers = {}
+    st.session_state.exam_state = "config"
+    st.session_state.tram3_chat_messages = []
+    st.session_state.exam_code = str(random.randint(1011, 9999))
+    st.toast(f"🔄 Đã chuyển sang không gian học tập môn {subject} - {grade}!", icon="✨")
+
+st.session_state.active_context_key = current_context_key
+
 st.sidebar.markdown("---")
 with st.sidebar.expander("🛠️ Báo lỗi ứng dụng & Góp ý trải nghiệm", expanded=False):
     fb_category = st.selectbox("Loại vấn đề gặp phải:", ["📷 Lỗi nhận diện chữ", "📊 Lỗi đồ thị Lab", "🤖 AI giải thích khó hiểu", "⏳ Ứng dụng chậm", "💡 Đề xuất mới"])
@@ -1474,10 +1499,54 @@ tab1, tab2, tab3, tab4 = st.tabs(["📖 Trạm 1: Học Tập & Phòng Lab", "�
 with tab1:
     st.markdown("<br>", unsafe_allow_html=True)
     st.subheader(f"📖 Tự học & Chiếm lĩnh kiến thức môn {subject} - Lớp {grade_num}")
-    
-    topic_input = st.text_input("📝 Nhập bài học cần chiếm lĩnh kiến thức:", placeholder="Ví dụ: Khảo sát hàm số, Hình chóp, Alkane, Đọc hiểu thơ hiện đại...")
-    
-    if st.button("🚀 Soạn bài học chuẩn GDPT 2018") and topic_input.strip():
+
+    # GỢI Ý CHỦ ĐỀ CHUẨN XÁC THEO TỪNG MÔN HỌC & KHỐI LỚP (GDPT 2018)
+    subject_placeholders = {
+        "Toán học": "Ví dụ: Khảo sát hàm số bậc ba, Nguyên hàm và Tích phân, Khối tròn xoay, Tọa độ Oxyz...",
+        "Tiếng Anh": "Ví dụ: Unit 1: Life stories, Conditional sentences, Passive voice, IELTS Speaking...",
+        "Vật lý": "Ví dụ: Dao động điều hòa, Sóng cơ và sóng âm, Từ trường, Quang hình học, Vật lý hạt nhân...",
+        "Hóa học": "Ví dụ: Ester - Lipid, Glucose và Fructose, Amine và Amino acid, Polyme, Cân bằng hóa học...",
+        "Sinh học": "Ví dụ: Cơ chế di truyền và biến dị, Quy luật Menđen, Di truyền học người, Hệ sinh thái...",
+        "Ngữ văn": "Ví dụ: Đọc hiểu văn bản nghị luận xã hội, Thơ trữ tình hiện đại, Kỹ năng viết bài nghị luận văn học...",
+        "Lịch sử": "Ví dụ: Cách mạng tháng Tám 1945, Chiến dịch Điện Biên Phủ, Công cuộc Đổi mới đất nước, Toàn cầu hóa...",
+        "Địa lý": "Ví dụ: Chuyển dịch cơ cấu kinh tế, Vùng Đông Nam Bộ, Phát triển kinh tế biển đảo Việt Nam...",
+        "Tin học": "Ví dụ: Lập trình Python cơ bản, Thuật toán sắp xếp, Cơ sở dữ liệu quan hệ SQL, Mạng máy tính...",
+        "Giáo dục kinh tế và pháp luật": "Ví dụ: Quy luật cung - cầu, Lạm phát và thị trường lao động, Quyền tự do kinh doanh...",
+        "Khoa học tự nhiên": "Ví dụ: Cấu tạo nguyên tử, Tế bào nhân thực, Lực và chuyển động, Năng lượng tái tạo...",
+        "Lịch sử & Địa lý": "Ví dụ: Các cuộc cách mạng công nghiệp, Văn minh sông Hồng, Khí hậu nhiệt đới ẩm gió mùa...",
+        "Giáo dục công dân": "Ví dụ: Tôn trọng sự thật, Phòng chống bạo lực học đường, Quyền và nghĩa vụ học tập..."
+    }
+    curr_ph = subject_placeholders.get(subject, f"Ví dụ: Bài học trọng tâm môn {subject} Lớp {grade_num}...")
+
+    # Quick topics gợi ý chọn nhanh cho từng môn
+    quick_topics_dict = {
+        "Toán học": ["Khảo sát hàm số bậc ba", "Nguyên hàm & Tích phân", "Phương pháp tọa độ Oxyz"],
+        "Tiếng Anh": ["Unit 1: Life stories", "Conditional sentences", "IELTS Speaking & Vocabulary"],
+        "Vật lý": ["Dao động điều hòa", "Sóng cơ & Sóng âm", "Dòng điện xoay chiều"],
+        "Hóa học": ["Ester và Lipid", "Glucose & Fructose", "Amine & Amino acid"],
+        "Sinh học": ["Cơ chế di truyền", "Quy luật Menđen", "Di truyền học quần thể"],
+        "Ngữ văn": ["Nghị luận xã hội", "Thơ hiện đại 1975 nay", "Nghị luận văn học"],
+        "Lịch sử": ["Cách mạng tháng Tám", "Chiến dịch Điện Biên Phủ", "Công cuộc Đổi mới"],
+        "Địa lý": ["Cơ cấu kinh tế", "Vùng Đông Nam Bộ", "Kinh tế biển đảo"],
+        "Tin học": ["Lập trình Python", "Thuật toán sắp xếp", "Cơ sở dữ liệu SQL"],
+        "Giáo dục kinh tế và pháp luật": ["Quy luật cung - cầu", "Thị trường lao động", "Pháp luật kinh doanh"]
+    }
+
+    col_inp, col_btn = st.columns([3.8, 1.2])
+    with col_inp:
+        topic_input = st.text_input(
+            "📝 Nhập bài học cần chiếm lĩnh kiến thức:", 
+            placeholder=curr_ph,
+            key=f"topic_input_{current_context_key}"
+        )
+    with col_btn:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        btn_submit_lesson = st.button("🚀 Soạn bài học", key=f"btn_soan_{current_context_key}")
+
+    q_topics = quick_topics_dict.get(subject, ["Chuyên đề trọng tâm 1", "Chuyên đề trọng tâm 2"])
+    st.caption("💡 **Chủ đề gợi ý học nhanh:** " + " • ".join([f"`{t}`" for t in q_topics]))
+
+    if btn_submit_lesson and topic_input.strip():
         st.session_state.tram1_count += 1
         with st.spinner("Đang biên soạn chuẩn ngữ liệu SGK KNTT và cấu trúc Socratic..."):
             study_prompt = f"""[HỆ THỐNG BIÊN SOẠN BÀI HỌC CHUẨN QUỐC GIA - CT GDPT 2018 & QUY CHẾ THI 2026 (Cập nhật QĐ 764/QĐ-BGDĐT & TT 13/2026/TT-BGDĐT)]
@@ -1567,9 +1636,10 @@ TIÊU ĐỀ BẮT BUỘC (Phải giữ đúng text này để hệ thống nhậ
     st.markdown('<h4 style="color: #38bdf8; margin-top: 0; margin-bottom: 5px; font-weight: 800;">🔬 PHÒNG THÍ NGHIỆM ẢO THEO YÊU CẦU (VIRTUAL LAB)</h4>', unsafe_allow_html=True)
     st.markdown(f'<div style="color: #cbd5e1; font-size: 15px; margin-bottom: 12px;">Hệ thống AI đang liên kết trực tiếp với <b>Môn {subject} - Lớp {grade_num}</b>. Nhập yêu cầu mô phỏng đồ thị, tích phân, miền nghiệm, không gian 3D, hoặc sơ đồ tư duy:</div>', unsafe_allow_html=True)
     
-    lab_command = st.text_input("Lệnh mô phỏng:", placeholder="Ví dụ Toán: Vẽ đồ thị, miền nghiệm... Lý/Hóa: Mô phỏng lực, sơ đồ... Văn/Sử: Vẽ sơ đồ tư duy...", label_visibility="collapsed")
+    lab_ph = f"Ví dụ Tiếng Anh: Vẽ sơ đồ tư duy thì động từ, sơ đồ từ vựng Topic Education..." if subject == "Tiếng Anh" else (f"Ví dụ Toán: Vẽ đồ thị, diện tích tích phân, sơ đồ tư duy..." if subject == "Toán học" else "Ví dụ: Mô phỏng quy trình, sơ đồ tư duy bài học...")
+    lab_command = st.text_input("Lệnh mô phỏng:", placeholder=lab_ph, key=f"lab_cmd_{current_context_key}", label_visibility="collapsed")
     
-    if st.button("✨ Khởi chạy Phòng Lab") and lab_command.strip():
+    if st.button("✨ Khởi chạy Phòng Lab", key=f"btn_lab_{current_context_key}") and lab_command.strip():
         st.session_state.tram1_count += 1
         with st.spinner("AI đang phân tích ngữ cảnh liên môn và dựng mô hình..."):
             # TRÍCH XUẤT ĐẦY ĐỦ 100% NGỮ CẢNH BÀI HỌC, TRẮC NGHIỆM VÀ TỰ LUẬN PHÍA TRÊN
