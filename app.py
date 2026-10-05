@@ -349,10 +349,10 @@ def call_gemini_with_fallback(prompt_or_contents, system_instruction=None, json_
 # 6. PHÒNG LAB LAI & BỘ LỌC AN TOÀN AST
 # ==============================================================================
 def render_mermaid(code: str):
+    # CHUẨN HÓA MÃ MERMAID VÀ BẢO TOÀN CÔNG THỨC TOÁN LATEX / NGOẶC VUÔNG
     safe_code = code.strip().replace('[[', '[').replace(']]', ']')
     safe_code = re.sub(r'^```(?:mermaid)?', '', safe_code, flags=re.MULTILINE)
     safe_code = re.sub(r'```$', '', safe_code, flags=re.MULTILINE).strip()
-    safe_code = re.sub(r'\[(?!\s*")([^\]\n]+)(?<!")\]', r'["\1"]', safe_code)
 
     safe_code = re.sub(r'^\s*graph\s+TD', 'graph LR', safe_code, flags=re.IGNORECASE)
     safe_code = re.sub(r'^\s*flowchart\s+TD', 'flowchart LR', safe_code, flags=re.IGNORECASE)
@@ -361,10 +361,15 @@ def render_mermaid(code: str):
 
     json_code_str = json.dumps(safe_code).replace("</", "<\\/")
 
-    html_template = """
+    html_template = r"""
+    <!-- TÍCH HỢP KATEX VÀ D3.JS CHUẨN SƯ PHẠM QUỐC GIA -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
     <div style="background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); border-radius: 14px; border: 1.5px solid #1e293b; padding: 12px; position: relative; font-family: system-ui, -apple-system, sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 10px;">
-            <span style="color: #38bdf8; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;">🎯 SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (CLICK NÚT ĐỂ SỔ / THU NHÁNH)</span>
+            <span style="color: #38bdf8; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;">🎯 SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (HỖ TRỢ CÔNG THỨC TOÁN KATEX • CLICK ĐỂ SỔ/THU)</span>
             <div>
                 <button onclick="expandAll()" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px;">➕ Mở tất cả</button>
                 <button onclick="collapseAll()" style="background: #1e293b; color: #f43f5e; border: 1px solid #f43f5e; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px;">➖ Thu gọn</button>
@@ -372,24 +377,60 @@ def render_mermaid(code: str):
                 <button onclick="downloadMindmapSVG()" style="background: #0ea5e9; color: #ffffff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">📥 Tải Sơ Đồ (SVG)</button>
             </div>
         </div>
-        <div id="mindmap-container" style="width: 100%; height: 520px; overflow: hidden; cursor: grab;"></div>
+        <div id="mindmap-container" style="width: 100%; height: 550px; overflow: hidden; cursor: grab;"></div>
     </div>
 
-    <script src="https://d3js.org/d3.v7.min.js"></script>
     <script>
     const rawCode = ___JSON_CODE_PLACEHOLDER___;
-    
+
+    // HÀM CHUẨN HÓA HTML & RENDER KATEX TRONG TỪNG NODE SƠ ĐỒ
+    function renderLabelWithKaTeX(rawLabel) {
+        if (!rawLabel) return "";
+        let text = rawLabel.trim();
+        // Thay thế an toàn $...$ bằng KaTeX HTML
+        text = text.replace(/\$([^\$]+)\$/g, function(match, tex) {
+            try {
+                if (window.katex) {
+                    return window.katex.renderToString(tex, { throwOnError: false, displayMode: false });
+                }
+            } catch (e) {
+                console.warn("KaTeX error:", e);
+            }
+            return match;
+        });
+        return text;
+    }
+
+    // BỘ PHÂN TÍCH NODE THÔNG MINH: BẢO VỆ NGOẶC VUÔNG [a,b] VÀ NHÁY KÉP
     function parseNodePart(part) {
         if (!part) return null;
         part = part.trim().split(':::')[0].trim();
-        const openIdx = part.search(/[\\(\\[\\{]/);
-        if (openIdx === -1) {
-            return { id: part, label: null };
+        
+        let firstDelim = -1;
+        let openChar = null;
+        for (let i = 0; i < part.length; i++) {
+            const ch = part[i];
+            if (ch === '(' || ch === '[' || ch === '{') {
+                firstDelim = i;
+                openChar = ch;
+                break;
+            }
         }
-        const id = part.substring(0, openIdx).trim();
-        let label = part.substring(openIdx).trim();
-        label = label.replace(/^[\\(\\[\\{]+["']?/, '').replace(/["']?[\\)\\]\\}]+$/, '').trim();
-        return { id: id, label: label || id };
+
+        if (firstDelim === -1) {
+            return { id: part, label: part };
+        }
+
+        const id = part.substring(0, firstDelim).trim();
+        const rest = part.substring(firstDelim).trim();
+        const closeChar = openChar === '(' ? ')' : (openChar === '[' ? ']' : '}');
+        const lastClose = rest.lastIndexOf(closeChar);
+
+        let label = lastClose !== -1 ? rest.substring(1, lastClose).trim() : rest.substring(1).trim();
+        if ((label.startsWith('"') && label.endsWith('"')) || (label.startsWith("'") && label.endsWith("'"))) {
+            label = label.substring(1, label.length - 1).trim();
+        }
+        return { id: id || label, label: label || id };
     }
 
     function parseMermaidToTree(code) {
@@ -445,7 +486,7 @@ def render_mermaid(code: str):
 
     const treeData = parseMermaidToTree(rawCode);
     const container = document.getElementById("mindmap-container");
-    const height = 520;
+    const height = 550;
 
     if (!treeData) {
         container.innerHTML = "<div style='color:#38bdf8; text-align:center; padding-top:200px;'>Đang hiển thị sơ đồ...</div>";
@@ -459,22 +500,27 @@ def render_mermaid(code: str):
         const g = svg.append("g");
 
         const zoom = d3.zoom()
-            .scaleExtent([0.3, 3])
+            .scaleExtent([0.25, 3.5])
             .on("zoom", (e) => g.attr("transform", e.transform));
         svg.call(zoom);
 
-        const treeLayout = d3.tree().nodeSize([68, 200]);
+        const treeLayout = d3.tree().nodeSize([78, 240]);
         const root = d3.hierarchy(treeData);
         root.x0 = height / 2;
         root.y0 = 40;
 
-        const palette = ["#818cf8", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa"];
+        const palette = ["#818cf8", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#38bdf8"];
 
+        // Thu gọn các nhánh con từ cấp 2 trở đi để sơ đồ thoáng đãng, người dùng click mở dần
         if (root.children) {
             root.children.forEach(c => {
                 if (c.children) {
-                    c._children = c.children;
-                    c.children = null;
+                    c.children.forEach(sub => {
+                        if (sub.children) {
+                            sub._children = sub.children;
+                            sub.children = null;
+                        }
+                    });
                 }
             });
         }
@@ -485,19 +531,24 @@ def render_mermaid(code: str):
             const nodes = treeInfo.descendants();
             const links = treeInfo.links();
 
+            // Tính toán trước kích thước hộp dựa trên độ dài nội dung và công thức KaTeX
             const maxWByDepth = {};
             nodes.forEach(d => {
                 const charLen = (d.data.name || '').length;
-                let estimatedW = Math.ceil(charLen * 8.2);
-                d.boxWidth = Math.max(70, estimatedW + 38);
+                let estimatedW = Math.ceil(charLen * 8.5);
+                if (d.data.name && d.data.name.includes('$')) {
+                    estimatedW = Math.max(estimatedW, 140);
+                }
+                d.boxWidth = Math.max(85, Math.min(380, estimatedW + 45));
+                d.boxHeight = 42;
                 if (!maxWByDepth[d.depth] || d.boxWidth > maxWByDepth[d.depth]) {
                     maxWByDepth[d.depth] = d.boxWidth;
                 }
             });
 
             const depthX = [35];
-            for (let dep = 1; dep <= 8; dep++) {
-                depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 110) + 48;
+            for (let dep = 1; dep <= 10; dep++) {
+                depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 130) + 55;
             }
 
             nodes.forEach(d => { 
@@ -521,36 +572,50 @@ def render_mermaid(code: str):
                     update(d);
                 });
 
+            // KHUNG CHỮ NHẬT BO GÓC PHÒNG LAB
             nodeEnter.append("rect")
-                .attr("rx", 8).attr("ry", 8)
-                .attr("x", 0).attr("y", -19)
-                .attr("height", 38)
+                .attr("rx", 9).attr("ry", 9)
+                .attr("x", 0).attr("y", -21)
+                .attr("height", d => d.boxHeight)
                 .attr("width", d => d.boxWidth)
                 .style("fill", "#0f172a")
                 .style("stroke", d => palette[d.depth % palette.length])
                 .style("stroke-width", d => d.depth === 0 ? "2.5px" : "1.8px")
-                .style("filter", "drop-shadow(0 4px 10px rgba(0,0,0,0.6))");
+                .style("filter", "drop-shadow(0 4px 10px rgba(0,0,0,0.65))");
 
+            // NÚT TRÒN CHỈ BÁO CÓ NHÁNH CON
             nodeEnter.append("circle")
                 .attr("cx", 14).attr("cy", 0).attr("r", 5.5)
                 .style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569"))
                 .style("stroke", d => palette[d.depth % palette.length])
                 .style("stroke-width", "2px");
 
-            nodeEnter.append("text")
-                .attr("x", 28).attr("y", 4)
-                .style("fill", "#ffffff")
-                .style("font-size", d => d.depth === 0 ? "14px" : "13px")
-                .style("font-weight", "700")
-                .text(d => d.data.name);
+            // HIỂN THỊ NỘI DUNG QUA FOREIGNOBJECT (NHÚNG HTML KATEX CHUẨN XÁC 100%)
+            const fo = nodeEnter.append("foreignObject")
+                .attr("x", 26)
+                .attr("y", -20)
+                .attr("width", d => d.boxWidth - 30)
+                .attr("height", d => d.boxHeight - 2)
+                .style("overflow", "visible")
+                .style("pointer-events", "none");
 
-            // DO TIM DO DAI CHUOI NOI DUNG THUC TE (DOM SVG getComputedTextLength) DE BAO SAT KHUNG
+            fo.append("xhtml:div")
+                .style("color", "#ffffff")
+                .style("font-size", d => d.depth === 0 ? "13.5px" : "12.5px")
+                .style("font-weight", d => d.depth === 0 ? "800" : "600")
+                .style("line-height", "40px")
+                .style("white-space", "nowrap")
+                .style("overflow", "hidden")
+                .style("text-overflow", "ellipsis")
+                .html(d => renderLabelWithKaTeX(d.data.name));
+
+            // ĐO TỌA ĐỘ VÀ ĐỘ RỘNG THỰC TẾ SAU KHI RENDER KATEX ĐỂ CO GIÃN HỘP HOÀN HẢO
             nodeEnter.each(function(d) {
-                const textNode = d3.select(this).select("text").node();
-                if (textNode && textNode.getComputedTextLength) {
-                    const realW = textNode.getComputedTextLength();
-                    if (realW > 0) {
-                        d.boxWidth = Math.max(65, Math.ceil(realW + 42));
+                const divEl = d3.select(this).select("div").node();
+                if (divEl) {
+                    const scrollW = divEl.scrollWidth;
+                    if (scrollW > 0) {
+                        d.boxWidth = Math.max(d.boxWidth, Math.min(480, scrollW + 38));
                     }
                 }
             });
@@ -559,6 +624,7 @@ def render_mermaid(code: str):
                 .attr("transform", d => `translate(${d.y},${d.x})`);
 
             nodeUpdate.select("rect").attr("width", d => d.boxWidth);
+            nodeUpdate.select("foreignObject").attr("width", d => d.boxWidth - 30);
             nodeUpdate.select("circle")
                 .style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569"));
 
@@ -579,8 +645,8 @@ def render_mermaid(code: str):
             const linkEnter = link.enter().insert("path", "g")
                 .attr("class", "link")
                 .attr("d", d => {
-                    const startX = source.y0 + (source.boxWidth || 145);
-                    return `M ${startX} ${source.x0} C ${startX} ${source.x0}, ${startX} ${source.x0}, ${startX} ${source.x0}`;
+                    const startX = source.y0 + (source.boxWidth || 150);
+                    return `M ${startX} ${source.x0} C ${startX} ${source.x0}, ${startX} ${source.x0}`;
                 })
                 .style("fill", "none")
                 .style("stroke", d => palette[d.target.depth % palette.length])
@@ -592,8 +658,8 @@ def render_mermaid(code: str):
 
             link.exit().transition().duration(350)
                 .attr("d", d => {
-                    const startX = source.y + (source.boxWidth || 145);
-                    return `M ${startX} ${source.x} C ${startX} ${source.x}, ${startX} ${source.x}, ${startX} ${source.x}`;
+                    const startX = source.y + (source.boxWidth || 150);
+                    return `M ${startX} ${source.x} C ${startX} ${source.x}`;
                 })
                 .remove();
 
@@ -652,9 +718,9 @@ def render_mermaid(code: str):
 
     final_html = html_template.replace("___JSON_CODE_PLACEHOLDER___", json_code_str)
     if hasattr(st, "iframe"):
-        st.iframe(final_html, height=560)
+        st.iframe(final_html, height=580)
     else:
-        components.html(final_html, height=560, scrolling=False)
+        components.html(final_html, height=580, scrolling=False)
 
 def setup_pedagogical_oxy(fig, x_range, y_range):
     x_min, x_max = x_range
@@ -1481,7 +1547,11 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
 8. MÔ PHỎNG NÂNG CAO PYTHON PLOTLY (Miền nghiệm BPT, Vật lý, Hóa học...):
    {{"type": "dynamic_code", "python_code": "fig = go.Figure()\\n# Code vẽ đồ thị\\nsetup_pedagogical_oxy(fig, [-5, 5], [-5, 5])"}}
 9. SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (CHO TẤT CẢ CÁC MÔN VÀ CÁC KHỐI LỚP 6-12 CHUẨN KNTT):
-   {{"type": "mermaid", "code": "graph LR\\n   Root[\\\"🎯 TIÊU ĐỀ CHỦ ĐỀ CHÍNH\\\"] --> A[\\\"1. Nhánh trọng tâm 1\\\"]\\n   Root --> B[\\\"2. Nhánh trọng tâm 2\\\"]\\n   Root --> C[\\\"3. Nhánh trọng tâm 3\\\"]\\n   A --> A1[\\\"Từ khóa chi tiết 1.1\\\"]\\n   A --> A2[\\\"Từ khóa chi tiết 1.2\\\"]\\n   B --> B1[\\\"Từ khóa chi tiết 2.1\\\"]\\n   B --> B2[\\\"Từ khóa chi tiết 2.2\\\"]\\n   C --> C1[\\\"Từ khóa chi tiết 3.1\\\"]"}}
+   QUY CHUẨN SƠ ĐỒ BẮT BUỘC:
+   - ĐỘ SÂU & TOÀN DIỆN: Phải tóm tắt ĐẦY ĐỦ VÀ SÂU SẮC toàn bộ kiến thức cốt lõi, công thức, định lý ở bài học phía trên. Tối thiểu 3-5 nhánh chính cấp 1, mỗi nhánh chính bắt buộc có 2-4 nhánh con chi tiết. Tuyệt đối không vẽ sơ sài 1-2 nhánh!
+   - CÔNG THỨC TOÁN / KHTN: Mọi công thức toán (tích phân, nguyên hàm, đạo hàm, diện tích, thể tích, phân số, cận [a, b]...) PHẢI BỌC TRONG DẤU $...$ chuẩn LaTeX (ví dụ: $\\int_a^b f(x)dx = F(b)-F(a)$, $S = \\int_a^b |f(x)|dx$, $V = \\pi \\int_a^b [f(x)]^2 dx$).
+   - LIÊN KẾT BÀI TẬP: Nếu học sinh yêu cầu sơ đồ kèm ví dụ/câu hỏi ở trên, trích xuất nhánh con nối trực tiếp với ví dụ/câu hỏi đó!
+   Mẫu chuẩn: {{"type": "mermaid", "code": "graph LR\\n   Root[\\\"🎯 TIÊU ĐỀ CHỦ ĐỀ CHÍNH\\\"] --> A[\\\"1. Nhánh trọng tâm 1\\\"]\\n   Root --> B[\\\"2. Nhánh trọng tâm 2\\\"]\\n   Root --> C[\\\"3. Nhánh trọng tâm 3\\\"]\\n   A --> A1[\\\"Công thức/Định nghĩa: $công_thức_latex$\\\"]\\n   A --> A2[\\\"Tính chất chi tiết 1.2\\\"]\\n   B --> B1[\\\"Nội dung trọng tâm 2.1\\\"]\\n   B --> B2[\\\"Ví dụ vận dụng 2.2\\\"]\\n   C --> C1[\\\"Ứng dụng thực tiễn 3.1\\\"]"}}
 """
 
             try:
