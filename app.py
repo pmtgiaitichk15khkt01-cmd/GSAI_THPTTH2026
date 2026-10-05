@@ -1302,54 +1302,23 @@ st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - 
 # ==============================================================================
 # HỆ THỐNG PHÁT ÂM TIẾNG ANH BẢN NGỮ CHUẨN QUỐC TẾ (IELTS / TOEFL / PTE)
 # ==============================================================================
+# ==============================================================================
+# HỆ THỐNG PHÁT ÂM TIẾNG ANH BẢN NGỮ CHUẨN QUỐC TẾ (IELTS / TOEFL / PTE)
+# ==============================================================================
 def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key: str):
-    # CHỈ KÍCH HOẠT DUY NHẤT CHO MÔN TIẾNG ANH (CHUẨN BẢN NGỮ US/UK 100%)
+    # CHỈ KÍCH HOẠT DUY NHẤT CHO MÔN TIẾNG ANH (KHÔNG TẠO BANNER RÁC)
     if subject_name != "Tiếng Anh":
         return
 
     tts_html = f"""
-    <!-- KHUNG HƯỚNG DẪN SƯ PHẠM: SELECT-TO-SPEAK (TÔ ĐEN PHÁT ÂM CHUẨN MỸ) -->
-    <div style="margin: 14px 0; padding: 12px 16px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border-radius: 12px; border: 1.5px solid #38bdf8; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.25); font-family: system-ui, -apple-system, sans-serif;">
-        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 24px;">🎧</span>
-                <div>
-                    <div style="color: #38bdf8; font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">TÍNH NĂNG LUYỆN PHÁT ÂM BẢN NGỮ (CLICK & SELECT-TO-SPEAK • CHUẨN MỸ IELTS / TOEFL)</div>
-                    <div style="color: #cbd5e1; font-size: 13px; margin-top: 2px;">
-                        💡 <b>Hướng dẫn học sinh:</b> <b>Click vào bất kỳ phương án trắc nghiệm A, B, C, D</b>, nhãn nút bấm hoặc <b>sơ đồ tư duy D3.js</b>, hoặc <b>dùng chuột bôi đen (tô đen)</b> bất kỳ cụm từ tiếng Anh nào ➔ <b>Gia Sư AI tự động phát âm chuẩn bản ngữ tức thì!</b>
-                    </div>
-                </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="color: #94a3b8; font-size: 12px; font-weight: 600;">Tốc độ:</span>
-                <select id="rate_select_{comp_key}" onchange="changeVoiceRate_{comp_key}(this.value)" style="background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-                    <option value="0.85">0.85x (Chậm rõ luyện âm)</option>
-                    <option value="0.92" selected>0.92x (IELTS/TOEFL Chuẩn)</option>
-                    <option value="1.05">1.05x (Giao tiếp tự nhiên)</option>
-                </select>
-                <button onclick="stopVoice_{comp_key}()" style="background: #1e293b; color: #f87171; border: 1px solid #7f1d1d; padding: 4px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px;">
-                    ⏹ Dừng
-                </button>
-            </div>
-        </div>
-        <div id="speak_toast_{comp_key}" style="display: none; margin-top: 8px; padding: 6px 12px; background: rgba(56, 189, 248, 0.15); border: 1px dashed #38bdf8; border-radius: 8px; color: #38bdf8; font-size: 12.5px; font-weight: 600;"></div>
-    </div>
-
     <script>
     (function() {{
+        if (window.__english_tts_global_injected) return;
+        window.__english_tts_global_injected = true;
+
         let currentRate = 0.92;
         let lastSpoken = "";
         let lastSpeakTime = 0;
-
-        window.changeVoiceRate_{comp_key} = function(val) {{
-            currentRate = parseFloat(val);
-        }};
-
-        window.stopVoice_{comp_key} = function() {{
-            if (window.speechSynthesis) window.speechSynthesis.cancel();
-            const toast = document.getElementById("speak_toast_{comp_key}");
-            if (toast) toast.style.display = "none";
-        }};
 
         function getBestEnglishVoice() {{
             const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
@@ -1357,37 +1326,22 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
                    voices.find(v => v.lang.startsWith('en')) || null;
         }}
 
-        function showSpeakToast(word) {{
-            const toast = document.getElementById("speak_toast_{comp_key}");
-            if (!toast) return;
-            toast.innerText = "🔊 Gia Sư AI đang phát âm chuẩn: \\"" + word + "\\"";
-            toast.style.display = "block";
-            setTimeout(() => {{
-                if (toast) toast.style.display = "none";
-            }}, 3200);
-        }}
-
-        function speakEnglishText(text) {{
-            if (!text) return;
+        window.speakEnglishText = function(text) {{
+            if (!text || !window.speechSynthesis) return;
             text = text.trim();
-            // Loại bỏ tiền tố trắc nghiệm A., B., C., D. hoặc A), B) và các ký hiệu markdown
-            text = text.replace(/^[A-Da-d][\\.\\:\\)]\\s*/, '').replace(/[\\*\\#\\`\\_\\~\\[\\]\\(\\)]/g, ' ').trim();
+            text = text.replace(/^[A-Da-d][.:)]\s*/, '').replace(/[*#`_~\[\]()]/g, ' ').trim();
             if (!text || text.length < 2 || text.length > 350) return;
 
-            // Bộ lọc ngôn ngữ: Bỏ qua nếu là câu tiếng Việt có dấu
             const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
             if (viRegex.test(text)) return;
-
-            // Bắt buộc phải có chữ cái tiếng Anh
             if (!/[a-zA-Z]/.test(text)) return;
 
-            // Chống phát âm lặp trong 1.0 giây
             const now = Date.now();
             if (text.toLowerCase() === lastSpoken.toLowerCase() && (now - lastSpeakTime) < 1000) return;
             lastSpoken = text;
             lastSpeakTime = now;
 
-            if (window.speechSynthesis) {{
+            try {{
                 window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = 'en-US';
@@ -1396,9 +1350,10 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
                 const voice = getBestEnglishVoice();
                 if (voice) u.voice = voice;
                 window.speechSynthesis.speak(u);
-                showSpeakToast(text);
+            }} catch(err) {{
+                console.warn("TTS error:", err);
             }}
-        }}
+        }};
 
         function handleSelectionToSpeak() {{
             try {{
@@ -1406,482 +1361,292 @@ def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key:
                 const sel = targetDoc.getSelection();
                 if (!sel) return;
                 let text = sel.toString().trim();
-                speakEnglishText(text);
-            }} catch(e) {{
-                console.warn("Select-to-speak error:", e);
-            }}
+                if (text && window.speakEnglishText) window.speakEnglishText(text);
+            }} catch(e) {{}}
         }}
 
-        // BẮT SỰ KIỆN CLICK VÀO CÁC NÚT ĐÁP ÁN TRẮC NGHIỆM STREAMLIT & BUTTONS
         function handleElementClickToSpeak(event) {{
             try {{
                 const el = event.target;
                 if (!el) return;
-
-                // 1. Kiểm tra nếu học sinh click vào phương án trắc nghiệm Streamlit (label radio, span, p)
                 const radioLabel = el.closest('label[data-baseweb="radio"]') || el.closest('[data-testid="stRadio"] label');
                 if (radioLabel) {{
                     const labelText = radioLabel.innerText || radioLabel.textContent || "";
-                    if (labelText) {{
-                        speakEnglishText(labelText);
-                        return;
-                    }}
+                    if (labelText && window.speakEnglishText) return window.speakEnglishText(labelText);
                 }}
-
-                // 2. Kiểm tra nếu học sinh click vào button Streamlit chứa tiếng Anh
-                const btn = el.closest('button');
-                if (btn) {{
-                    const btnText = btn.innerText || btn.textContent || "";
-                    speakEnglishText(btnText);
-                    return;
-                }}
-
-                // 3. Kiểm tra nếu học sinh click vào badge/tag tiếng Anh
-                const badge = el.closest('.badge-tag, .stMarkdown strong, .stMarkdown em');
-                if (badge) {{
-                    const bText = badge.innerText || badge.textContent || "";
-                    speakEnglishText(bText);
-                    return;
-                }}
-            }} catch(e) {{
-                console.warn("Click-to-speak error:", e);
-            }}
+            }} catch(e) {{}}
         }}
 
-        // TIÊM CSS MỞ KHÓA SELECTION CHO TOÀN BỘ NÚT & RADIO TRÊN STREAMLIT
         try {{
             const targetDoc = window.parent.document || document;
-            let styleEl = targetDoc.getElementById("english-tts-radio-style");
-            if (!styleEl) {{
-                styleEl = targetDoc.createElement("style");
-                styleEl.id = "english-tts-radio-style";
-                styleEl.textContent = `
-                    label[data-baseweb="radio"], [data-testid="stRadio"] label, [data-testid="stRadio"] div {{
-                        user-select: text !important;
-                        -webkit-user-select: text !important;
-                        cursor: pointer !important;
-                    }}
-                    label[data-baseweb="radio"]:hover {{
-                        color: #38bdf8 !important;
-                    }}
-                `;
-                targetDoc.head.appendChild(styleEl);
-            }}
-        }} catch(e) {{
-            console.warn("CSS inject error:", e);
-        }}
-
-        // LẮNG NGHE SỰ KIỆN BÔI ĐEN VÀ CLICK ĐÁP ÁN TRẮC NGHIỆM TRÊN TOÀN GIAO DIỆN
-        try {{
-            const targetDoc = window.parent.document || document;
-            targetDoc.removeEventListener("mouseup", handleSelectionToSpeak);
-            targetDoc.removeEventListener("touchend", handleSelectionToSpeak);
-            targetDoc.removeEventListener("click", handleElementClickToSpeak);
-            
             targetDoc.addEventListener("mouseup", handleSelectionToSpeak);
             targetDoc.addEventListener("touchend", handleSelectionToSpeak);
             targetDoc.addEventListener("click", handleElementClickToSpeak, true);
-        }} catch(e) {{
-            document.addEventListener("mouseup", handleSelectionToSpeak);
-            document.addEventListener("touchend", handleSelectionToSpeak);
-            document.addEventListener("click", handleElementClickToSpeak, true);
-        }}
-
-        if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {{
-            window.speechSynthesis.onvoiceschanged = function() {{
-                getBestEnglishVoice();
-            }};
-        }}
+        }} catch(e) {{}}
     }})();
     </script>
     """
-    components.html(tts_html, height=88)
+    components.html(tts_html, height=0)
 
 # ==============================================================================
-# BỘ CÔNG CỤ NHẬN DIỆN GIỌNG NÓI VOICE-TO-TEX & PHÒNG LUYỆN NÓI TIẾNG ANH PHẢN XẠ IELTS/TOEFL
+# BỘ CÔNG CỤ PHÒNG LUYỆN NÓI TIẾNG ANH PHẢN XẠ 1-1 (CHỈ HIỂN THỊ KHI CHỌN MÔN TIẾNG ANH)
 # ==============================================================================
 def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject: str, current_grade: int):
+    # CHỈ HIỂN THỊ DUY NHẤT CHO MÔN TIẾNG ANH TẠI TRẠM 1 (CÁC MÔN KHÁC TUYỆT ĐỐI KHÔNG HIỂN THỊ)
+    if current_subject != "Tiếng Anh" or stage_id != 'Tram 1':
+        return
+
     st.markdown("---")
-    st.markdown(f"#### 🎙️ Phòng Giao Tiếp Giọng Nói Voice-to-TeX & Luyện Nói Phản Xạ ({stage_id})")
     
-    if current_subject != "Tiếng Anh":
-        # GIAO DIỆN CHUYÊN BIỆT CHO CÁC MÔN KHOA HỌC (TOÁN, LÝ, HÓA, SINH, VĂN, TIN...)
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 1.5px solid #38bdf8; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                <span style="font-size: 22px;">📐</span>
-                <span style="color: #38bdf8; font-weight: 800; font-size: 15px; text-transform: uppercase;">CHUYỂN ĐỔI KHẨU NGỮ GIỌNG NÓI SANG CÔNG THỨC $\\LaTeX$ CHUẨN BỘ GD&ĐT</span>
-            </div>
-            <div style="color: #cbd5e1; font-size: 13.5px; line-height: 1.6;">
-                💡 <b>Hướng dẫn học sinh:</b> Em có thể <b>bấm và đè giữ nút Mic</b> (hoặc gõ tay) để nói câu hỏi bằng giọng nói tự nhiên (Ví dụ: <i>"tích phân từ không đến một của x bình cộng một nhân dx"</i>). Hệ thống sẽ tự động biên dịch sang mã TeX chuẩn chỉ và chuyển thẳng sang Trạm 2 để Thầy AI hướng dẫn giải!
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        col_t1, col_t2 = st.columns([1.2, 1.0])
-        with col_t1:
-            # Micro Widget Đè để nói (Press & Hold) nguyên khối
-            tex_mic_code = f"""
-            <div style="background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; font-family: system-ui, sans-serif;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
-                    <button id="btn_hold_tex" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #ffffff; border: 1.5px solid #38bdf8; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(2,132,199,0.3); user-select: none;">
-                        <span id="tex_icon">🎙️</span> <span id="tex_lbl">ĐÈ ĐỂ NÓI CÂU HỎI</span>
-                    </button>
-                    <span id="tex_status" style="color: #94a3b8; font-size: 12px; font-weight: 600;">(Ấn và giữ chuột để nói, nhả chuột để chốt)</span>
-                </div>
-                <div id="tex_box" style="min-height: 42px; background: #1e293b; border: 1px dashed #475569; border-radius: 8px; padding: 8px 12px; color: #38bdf8; font-size: 13.5px; font-weight: 600;">
-                    Chưa có âm thanh... Hãy đè nút mic ở trên để đọc công thức!
-                </div>
-            </div>
-            <script>
-            (function() {{
-                let rec = null;
-                let isRecording = false;
-                const btn = document.getElementById('btn_hold_tex');
-                const lbl = document.getElementById('tex_lbl');
-                const icon = document.getElementById('tex_icon');
-                const stat = document.getElementById('tex_status');
-                const box = document.getElementById('tex_box');
-
-                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
-                    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    rec = new Speech();
-                    rec.continuous = true;
-                    rec.interimResults = true;
-                    rec.lang = 'vi-VN';
-
-                    rec.onstart = function() {{
-                        isRecording = true;
-                        btn.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
-                        lbl.innerText = 'ĐANG THU ÂM... NHẢ RA ĐỂ XONG';
-                        icon.innerText = '🔴';
-                        stat.innerText = '● Đang lắng nghe giọng nói của em...';
-                        stat.style.color = '#ef4444';
-                    }};
-
-                    rec.onresult = function(e) {{
-                        let str = '';
-                        for (let i = e.resultIndex; i < e.results.length; ++i) {{
-                            str += e.results[i][0].transcript;
-                        }}
-                        if (str) {{
-                            box.innerText = str;
-                            // Đồng bộ sang ô input cha
-                            try {{
-                                const targetDoc = window.parent.document || document;
-                                const inps = targetDoc.querySelectorAll('input[type="text"]');
-                                for (let inp of inps) {{
-                                    if (inp.placeholder && inp.placeholder.includes('tich phan')) {{
-                                        inp.value = str;
-                                        inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                        inp.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                                        break;
-                                    }}
-                                }}
-                            }} catch(err) {{ console.warn(err); }}
-                        }}
-                    }};
-
-                    rec.onerror = function(e) {{
-                        stat.innerText = 'Lỗi thu âm: ' + e.error;
-                        stat.style.color = '#f87171';
-                        stopRec();
-                    }};
-
-                    rec.onend = function() {{
-                        stopRec();
-                    }};
-                }} else {{
-                    stat.innerText = 'Trình duyệt không hỗ trợ Web Speech Mic';
-                }}
-
-                function startRec(e) {{
-                    if (e) e.preventDefault();
-                    if (!rec) return alert('Hãy dùng Google Chrome hoặc Microsoft Edge để dùng Micro!');
-                    if (!isRecording) {{
-                        try {{ rec.start(); }} catch(err) {{}}
-                    }}
-                }}
-
-                function stopRec(e) {{
-                    if (e) e.preventDefault();
-                    if (rec && isRecording) {{
-                        try {{ rec.stop(); }} catch(err) {{}}
-                    }}
-                    isRecording = false;
-                    btn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
-                    lbl.innerText = 'ĐÈ ĐỂ NÓI CÂU HỎI';
-                    icon.innerText = '🎙️';
-                    stat.innerText = '✅ Đã ghi nhận xong!';
-                    stat.style.color = '#34d399';
-                }}
-
-                btn.addEventListener('mousedown', startRec);
-                btn.addEventListener('mouseup', stopRec);
-                btn.addEventListener('mouseleave', stopRec);
-                btn.addEventListener('touchstart', startRec);
-                btn.addEventListener('touchend', stopRec);
-            }})();
-            </script>
-            """
-            components.html(tex_mic_code, height=115)
-
-            voice_text_input = st.text_input(
-                f"💬 Ngữ liệu câu hỏi (nhận diện từ Mic hoặc gõ):", 
-                key=f"voice_input_{stage_id}", 
-                placeholder="Vi du: tich phan tu 0 den 1 cua x binh cong 1 dx..."
-            )
-
-            col_sub1, col_sub2 = st.columns(2)
-            with col_sub1:
-                btn_trans = st.button(f"⚡ Dịch sang chuẩn LaTeX", key=f"btn_tex_{stage_id}")
-            with col_sub2:
-                btn_send_t2 = st.button(f"🚀 Gửi Thầy Socratic (Trạm 2)", key=f"btn_send_{stage_id}", type="primary")
-
-            if btn_trans and voice_text_input.strip():
-                with st.spinner("AI đang chuyển đổi khẩu ngữ sang công thức LaTeX sư phạm..."):
-                    try:
-                        prompt_tex = f"""Bạn là chuyên gia sư phạm Toán/Khoa học CT GDPT 2018. Hãy chuyển ngữ liệu câu hỏi sau thành công thức LaTeX chuẩn:
-Ngữ liệu: '{voice_text_input}'
-Xuất DUY NHẤT khối mã công thức LaTeX trong $...$ hoặc $$...$$, không giải thích dài dòng."""
-                        tex_res = call_gemini_with_fallback(prompt_tex)
-                        st.session_state[f"tex_confirm_{stage_id}"] = tex_res.strip()
-                    except Exception as e:
-                        st.error(f"Lỗi: {e}")
-
-            if btn_send_t2:
-                tex_val = st.session_state.get(f"tex_confirm_{stage_id}", voice_text_input)
-                if tex_val:
-                    user_q_content = f"Thầy ơi, em hỏi bài này ạ: {tex_val} (Ngữ liệu nói: '{voice_text_input}')"
-                    if "messages" not in st.session_state: st.session_state.messages = []
-                    st.session_state.messages.append({"role": "user", "content": user_q_content})
-                    st.session_state.tram2_count += 1
-                    st.success("🎉 Đã gửi câu hỏi chuẩn TeX thành công sang Trạm 2! Hãy mở Tab 'Trạm 2' để xem Thầy hướng dẫn nhé.")
-
-        with col_t2:
-            st.markdown("##### 🔍 Bản Xem Trước Công Thức & Kiểm Chứng:")
-            if st.session_state.get(f"tex_confirm_{stage_id}"):
-                cur_tex = st.session_state[f"tex_confirm_{stage_id}"]
-                st.info(f"**Mã TeX sinh ra:**\n\n{cur_tex}")
-                st.caption("✅ Công thức đã được đối chiếu chuẩn ký hiệu toán học Bộ GD&ĐT 2026.")
-            else:
-                st.markdown("""
-                <div style="height: 140px; background: #0f172a; border: 1.5px dashed #334155; border-radius: 10px; display: flex; align-items: center; justify-content: center; text-align: center; color: #64748b; font-size: 13px; padding: 12px;">
-                    Chưa có công thức nào được dịch.<br>Hãy đè Mic bên trái để bắt đầu!
-                </div>
-                """, unsafe_allow_html=True)
-    else:
-        # GIAO DIỆN PHÒNG LUYỆN NÓI TIẾNG ANH PHẢN XẠ 1-1 (AI SPEAKING LAB 50/50 CÂN ĐỐI)
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 1.5px solid #38bdf8; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+    # GIAO DIỆN PHÒNG LUYỆN NÓI TIẾNG ANH PHẢN XẠ 1-1 (AI SPEAKING LAB 50/50 CÂN ĐỐI)
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 1.5px solid #38bdf8; border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 24px;">🇬🇧</span>
-                <span style="color: #38bdf8; font-weight: 800; font-size: 15px; text-transform: uppercase;">PHÒNG THỰC HÀNH NÓI TIẾNG ANH PHẢN XẠ 1-1 BẢN NGỮ (AI SPEAKING REFLEX LAB)</span>
-            </div>
-            <div style="color: #cbd5e1; font-size: 13px; line-height: 1.55;">
-                Chuẩn Khung năng lực ngoại ngữ 6 bậc Việt Nam & IELTS Quốc tế • Tự động bám sát từ vựng New Words, đoạn văn đọc mẫu SGK Kết Nối Tri Thức và đối thoại phản xạ 1-1 có chấm điểm thực tế!
+                <div>
+                    <span style="color: #38bdf8; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">PHÒNG THỰC HÀNH NÓI TIẾNG ANH PHẢN XẠ 1-1 BẢN NGỮ (AI SPEAKING LAB)</span>
+                    <div style="color: #94a3b8; font-size: 12.5px; margin-top: 2px;">
+                        💡 <b>Mẹo học sinh:</b> Click nút 🔊 bên cạnh từ/cụm từ hoặc <b>bôi đen (select text)</b> bất kỳ đoạn tiếng Anh nào để nghe phát âm chuẩn US (en-US).
+                    </div>
+                </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
-        # Ngân hàng từ vựng & đoạn văn mẫu theo từng Unit chuẩn SGK KNTT
-        curriculum_english_units = {
-            "Unit 1: Life stories & Inspiring People": {
-                "vocab": [
-                    {"word": "Perseverance", "ipa": "/ˌpɜːsɪˈvɪərəns/", "meaning": "Sự kiên trì, bền chí"},
-                    {"word": "Inspirational", "ipa": "/ˌɪnspəˈreɪʃənl/", "meaning": "Truyền cảm hứng"},
-                    {"word": "Distinguished", "ipa": "/dɪˈstɪŋɡwɪʃt/", "meaning": "Xuất chúng, lỗi lạc"},
-                    {"word": "Dedication", "ipa": "/ˌdedɪˈkeɪʃn/", "meaning": "Sự cống hiến tận tụy"}
-                ],
-                "passage": "Uncle Ho devoted his entire life to national liberation, inspiring generations of Vietnamese students to study diligently and cultivate personal integrity.",
-                "q_reflex": "Who is a historical or modern figure that inspired you the most in your life? Explain why."
-            },
-            "Unit 2: A Green Planet & Environmental Protection": {
-                "vocab": [
-                    {"word": "Biodiversity", "ipa": "/ˌbaɪəʊdaɪˈvɜːsəti/", "meaning": "Đa dạng sinh học"},
-                    {"word": "Deforestation", "ipa": "/diːˌfɒrɪˈsteɪʃn/", "meaning": "Nạn phá rừng"},
-                    {"word": "Sustainability", "ipa": "/səˌsteɪnəˈbɪləti/", "meaning": "Sự phát triển bền vững"},
-                    {"word": "Carbon footprint", "ipa": "/ˌkɑːbən ˈfʊtprɪnt/", "meaning": "Dấu chân carbon"}
-                ],
-                "passage": "Transitioning to renewable clean energy and minimizing single-use plastic are decisive steps to preserve Earth's climate stability.",
-                "q_reflex": "What practical actions can high school students in Vietnam take to reduce plastic waste on campus?"
-            },
-            "Unit 3: Music & Cultural Traditions": {
-                "vocab": [
-                    {"word": "Heritage", "ipa": "/ˈherɪtɪdʒ/", "meaning": "Di sản văn hóa"},
-                    {"word": "Melody", "ipa": "/ˈmelədi/", "meaning": "Giai điệu âm nhạc"},
-                    {"word": "Traditional", "ipa": "/trəˈdɪʃənl/", "meaning": "Thuộc về truyền thống"},
-                    {"word": "Instrument", "ipa": "/ˈɪnstrəmənt/", "meaning": "Nhạc cụ biểu diễn"}
-                ],
-                "passage": "Traditional Vietnamese music like Quan Ho and Ca Tru reflects our profound spiritual identity and unique poetic heritage.",
-                "q_reflex": "Do you prefer listening to traditional folk music or modern pop songs? Share your personal reasons."
-            },
-            "Unit 4: Global Technology & AI Revolution": {
-                "vocab": [
-                    {"word": "Artificial Intelligence", "ipa": "/ˌɑːtɪˈfɪʃl ɪnˈtelɪdʒəns/", "meaning": "Trí tuệ nhân tạo"},
-                    {"word": "Automation", "ipa": "/ˌɔːtəˈmeɪʃn/", "meaning": "Sự tự động hóa"},
-                    {"word": "Breakthrough", "ipa": "/ˈbreɪkθruː/", "meaning": "Bước đột phá công nghệ"},
-                    {"word": "Cybersecurity", "ipa": "/ˈsaɪbəsɪkjʊərəti/", "meaning": "An ninh mạng bảo mật"}
-                ],
-                "passage": "Artificial intelligence empowers modern teenagers to solve real-world problems and pursue self-directed scientific research.",
-                "q_reflex": "How can high school students utilize artificial intelligence responsibly without becoming over-dependent?"
-            }
+    # Tiêm script nghe phát âm 1 lần
+    create_pedagogical_tts_component("", "Tiếng Anh", f"init_{stage_id}")
+
+    # Ngân hàng từ vựng & đoạn văn mẫu theo từng Unit chuẩn SGK KNTT
+    curriculum_english_units = {
+        "Unit 1: Life stories & Inspiring People": {
+            "vocab": [
+                {"word": "Perseverance", "ipa": "/ˌpɜːsɪˈvɪərəns/", "meaning": "Sự kiên trì, bền chí"},
+                {"word": "Inspirational", "ipa": "/ˌɪnspəˈreɪʃənl/", "meaning": "Truyền cảm hứng"},
+                {"word": "Distinguished", "ipa": "/dɪˈstɪŋɡwɪʃt/", "meaning": "Xuất chúng, lỗi lạc"},
+                {"word": "Dedication", "ipa": "/ˌdedɪˈkeɪʃn/", "meaning": "Sự cống hiến tận tụy"}
+            ],
+            "passage": "Uncle Ho devoted his entire life to national liberation, inspiring generations of Vietnamese students to study diligently and cultivate personal integrity.",
+            "q_reflex": "Who is a historical or modern figure that inspired you the most in your life? Explain why."
+        },
+        "Unit 2: A Green Planet & Environmental Protection": {
+            "vocab": [
+                {"word": "Biodiversity", "ipa": "/ˌbaɪəʊdaɪˈvɜːsəti/", "meaning": "Đa dạng sinh học"},
+                {"word": "Deforestation", "ipa": "/diːˌfɒrɪˈsteɪʃn/", "meaning": "Nạn phá rừng"},
+                {"word": "Sustainability", "ipa": "/səˌsteɪnəˈbɪləti/", "meaning": "Sự phát triển bền vững"},
+                {"word": "Carbon footprint", "ipa": "/ˌkɑːbən ˈfʊtprɪnt/", "meaning": "Dấu chân carbon"}
+            ],
+            "passage": "Transitioning to renewable clean energy and minimizing single-use plastic are decisive steps to preserve Earth's climate stability.",
+            "q_reflex": "What practical actions can high school students in Vietnam take to reduce plastic waste on campus?"
+        },
+        "Unit 3: Music & Cultural Traditions": {
+            "vocab": [
+                {"word": "Heritage", "ipa": "/ˈherɪtɪdʒ/", "meaning": "Di sản văn hóa"},
+                {"word": "Melody", "ipa": "/ˈmelədi/", "meaning": "Giai điệu âm nhạc"},
+                {"word": "Traditional", "ipa": "/trəˈdɪʃənl/", "meaning": "Thuộc về truyền thống"},
+                {"word": "Instrument", "ipa": "/ˈɪnstrəmənt/", "meaning": "Nhạc cụ biểu diễn"}
+            ],
+            "passage": "Traditional Vietnamese music like Quan Ho and Ca Tru reflects our profound spiritual identity and unique poetic heritage.",
+            "q_reflex": "Do you prefer listening to traditional folk music or modern pop songs? Share your personal reasons."
+        },
+        "Unit 4: Global Technology & AI Revolution": {
+            "vocab": [
+                {"word": "Artificial Intelligence", "ipa": "/ˌɑːtɪˈfɪʃl ɪnˈtelɪdʒəns/", "meaning": "Trí tuệ nhân tạo"},
+                {"word": "Automation", "ipa": "/ˌɔːtəˈmeɪʃn/", "meaning": "Sự tự động hóa"},
+                {"word": "Breakthrough", "ipa": "/ˈbreɪkθruː/", "meaning": "Bước đột phá công nghệ"},
+                {"word": "Cybersecurity", "ipa": "/ˈsaɪbəsɪkjʊərəti/", "meaning": "An ninh mạng bảo mật"}
+            ],
+            "passage": "Artificial intelligence empowers modern teenagers to solve real-world problems and pursue self-directed scientific research.",
+            "q_reflex": "How can high school students utilize artificial intelligence responsibly without becoming over-dependent?"
         }
+    }
 
-        sel_unit = st.selectbox(
-            "📚 Chọn Chủ Đề Bài Học SGK Kết Nối Tri Thức:",
-            list(curriculum_english_units.keys()),
-            key=f"unit_eng_sel_{stage_id}"
-        )
-        unit_info = curriculum_english_units[sel_unit]
+    sel_unit = st.selectbox(
+        "📚 Chọn Chủ Đề Bài Học SGK Kết Nối Tri Thức:",
+        list(curriculum_english_units.keys()),
+        key=f"unit_eng_sel_{stage_id}"
+    )
+    unit_info = curriculum_english_units[sel_unit]
 
-        col_left_data, col_right_speak = st.columns([1.1, 1.1])
+    col_left_data, col_right_speak = st.columns([1.1, 1.1])
 
-        with col_left_data:
-            st.markdown("##### 📖 1. Từ Vựng Trọng Tâm & Ngữ Liệu SGK (New Words):")
+    with col_left_data:
+        st.markdown("##### 📖 1. Từ Vựng Trọng Tâm SGK (New Words):")
+        
+        # Bảng từ vựng New Words kèm IPA và nút Loa đọc chuẩn không rác UI
+        for v in unit_info["vocab"]:
+            v_word = v['word']
+            v_ipa = v['ipa']
+            v_meaning = v['meaning']
             
-            # Bảng từ vựng New Words kèm IPA và nút Loa đọc chuẩn
-            for v in unit_info["vocab"]:
-                c_w1, c_w2 = st.columns([2.5, 1.0])
-                with c_w1:
-                    st.markdown(f"• **{v['word']}** `{v['ipa']}`: *{v['meaning']}*")
-                with c_w2:
-                    create_pedagogical_tts_component(v['word'], "Tiếng Anh", f"vw_{v['word']}_{stage_id}")
-            
-            st.markdown("##### 📝 2. Đoạn Văn Luyện Đọc Chuẩn (Reading Passage):")
-            st.info(f"🗣️ *\"{unit_info['passage']}\"*")
-            create_pedagogical_tts_component(unit_info['passage'], "Tiếng Anh", f"pass_{stage_id}")
-
-        with col_right_speak:
-            st.markdown("##### 🎙️ 3. Phòng Thu Phản Xạ 1-1 Cùng Gia Sư AI:")
-            
-            # Tình huống đối thoại 1-1
-            st.markdown(f"""
-            <div style="background: rgba(30, 41, 59, 0.9); border: 1.5px solid #38bdf8; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
-                <div style="color: #38bdf8; font-weight: 700; font-size: 13px;">🤖 CÂU HỎI PHẢN XẠ CỦA GIA SƯ AI:</div>
-                <div style="color: #ffffff; font-size: 14px; font-weight: 600; margin-top: 4px;">"{unit_info['q_reflex']}"</div>
-            </div>
-            """, unsafe_allow_html=True)
-            create_pedagogical_tts_component(unit_info['q_reflex'], "Tiếng Anh", f"qref_{stage_id}")
-
-            # Micro Widget Đè để nói tiếng Anh chuẩn US
-            ielts_mic_code = f"""
-            <div style="background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; font-family: system-ui, sans-serif;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                    <button id="btn_hold_eng" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; border: 1.5px solid #34d399; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(16,185,129,0.3); user-select: none;">
-                        <span id="eng_icon">🎙️</span> <span id="eng_lbl">ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)</span>
-                    </button>
-                    <span id="eng_status" style="color: #94a3b8; font-size: 11.5px; font-weight: 600;">(Đè chuột nói, nhả chuột để chốt)</span>
+            # Render từ vựng kèm nút Loa phát âm trực tiếp
+            btn_play_code = f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 6px;">
+                <div>
+                    <span style="color: #38bdf8; font-weight: 700; font-size: 13.5px;">• {v_word}</span>
+                    <span style="color: #94a3b8; font-size: 12px; margin-left: 6px;">{v_ipa}</span>:
+                    <span style="color: #cbd5e1; font-size: 12.5px; font-style: italic; margin-left: 4px;">{v_meaning}</span>
                 </div>
-                <div id="eng_box" style="min-height: 52px; background: #1e293b; border: 1px dashed #475569; border-radius: 8px; padding: 8px 12px; color: #34d399; font-size: 13.5px; font-weight: 600;">
-                    Your spoken English will appear here in real-time...
-                </div>
+                <button onclick="window.speakEnglishText && window.speakEnglishText('{v_word}')" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer;">
+                    🔊 Đọc
+                </button>
             </div>
-            <script>
-            (function() {{
-                let rec = null;
-                let isRecording = false;
-                const btn = document.getElementById('btn_hold_eng');
-                const lbl = document.getElementById('eng_lbl');
-                const icon = document.getElementById('eng_icon');
-                const stat = document.getElementById('eng_status');
-                const box = document.getElementById('eng_box');
-
-                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
-                    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    rec = new Speech();
-                    rec.continuous = true;
-                    rec.interimResults = true;
-                    rec.lang = 'en-US';
-
-                    rec.onstart = function() {{
-                        isRecording = true;
-                        btn.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
-                        lbl.innerText = 'LISTENING... RELEASE TO FINISH';
-                        icon.innerText = '🔴';
-                        stat.innerText = '● Recording your English speech...';
-                        stat.style.color = '#ef4444';
-                    }};
-
-                    rec.onresult = function(e) {{
-                        let str = '';
-                        for (let i = e.resultIndex; i < e.results.length; ++i) {{
-                            str += e.results[i][0].transcript;
-                        }}
-                        if (str) {{
-                            box.innerText = str;
-                            try {{
-                                const targetDoc = window.parent.document || document;
-                                const textareas = targetDoc.querySelectorAll('textarea');
-                                for (let ta of textareas) {{
-                                    if (ta.placeholder && ta.placeholder.includes('English')) {{
-                                        ta.value = str;
-                                        ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                        ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                                        break;
-                                    }}
-                                }}
-                            }} catch(err) {{ console.warn(err); }}
-                        }}
-                    }};
-
-                    rec.onerror = function(e) {{
-                        stat.innerText = 'Mic error: ' + e.error;
-                        stat.style.color = '#f87171';
-                        stopRec();
-                    }};
-
-                    rec.onend = function() {{
-                        stopRec();
-                    }};
-                }} else {{
-                    stat.innerText = 'Web Speech Mic not supported on this browser';
-                }}
-
-                function startRec(e) {{
-                    if (e) e.preventDefault();
-                    if (!rec) return alert('Please use Google Chrome or Microsoft Edge for Voice Mic!');
-                    if (!isRecording) {{
-                        try {{ rec.start(); }} catch(err) {{}}
-                    }}
-                }}
-
-                function stopRec(e) {{
-                    if (e) e.preventDefault();
-                    if (rec && isRecording) {{
-                        try {{ rec.stop(); }} catch(err) {{}}
-                    }}
-                    isRecording = false;
-                    btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    lbl.innerText = 'ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)';
-                    icon.innerText = '🎙️';
-                    stat.innerText = '✅ Speech captured successfully!';
-                    stat.style.color = '#34d399';
-                }}
-
-                btn.addEventListener('mousedown', startRec);
-                btn.addEventListener('mouseup', stopRec);
-                btn.addEventListener('mouseleave', stopRec);
-                btn.addEventListener('touchstart', startRec);
-                btn.addEventListener('touchend', stopRec);
-            }})();
-            </script>
             """
-            components.html(ielts_mic_code, height=125)
+            st.markdown(btn_play_code, unsafe_allow_html=True)
 
-            student_speech = st.text_area(
-                "Nội dung bài nói của em (tự động nhận diện từ Mic):", 
-                key=f"eng_speech_input_{stage_id}",
-                placeholder="Your spoken English will be captured here...",
-                height=85
-            )
+        st.markdown("##### 📝 2. Đoạn Văn Luyện Đọc Chuẩn (Reading Passage):")
+        passage_code = f"""
+        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; margin-top: 4px;">
+            <div style="color: #e2e8f0; font-size: 13.5px; line-height: 1.6; font-style: italic;">"{unit_info['passage']}"</div>
+            <div style="text-align: right; margin-top: 8px;">
+                <button onclick="window.speakEnglishText && window.speakEnglishText(this.getAttribute('data-text'))" data-text="{unit_info['passage']}" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #ffffff; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    🔊 Đọc cả đoạn văn
+                </button>
+            </div>
+        </div>
+        """
+        st.markdown(passage_code, unsafe_allow_html=True)
 
-            btn_score_ielts = st.button("📊 Chấm Điểm 4 Tiêu Chí & Phản Hồi Socratic", key=f"btn_eval_ielts_{stage_id}", type="primary", use_container_width=True)
+    with col_right_speak:
+        st.markdown("##### 🎙️ 3. Phòng Thu Phản Xạ 1-1 Cùng Gia Sư AI:")
+        
+        # Tình huống đối thoại 1-1 với nút đọc câu hỏi
+        q_code = f"""
+        <div style="background: rgba(30, 41, 59, 0.95); border: 1.5px solid #38bdf8; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div style="color: #38bdf8; font-weight: 800; font-size: 13px;">🤖 CÂU HỎI PHẢN XẠ CỦA GIA SƯ AI:</div>
+                <button onclick="window.speakEnglishText && window.speakEnglishText(this.getAttribute('data-text'))" data-text="{unit_info['q_reflex']}" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                    🔊 Nghe phát âm
+                </button>
+            </div>
+            <div style="color: #ffffff; font-size: 13.5px; font-weight: 600; margin-top: 6px; line-height: 1.5;">"{unit_info['q_reflex']}"</div>
+        </div>
+        """
+        st.markdown(q_code, unsafe_allow_html=True)
 
-            if btn_score_ielts and student_speech.strip():
-                with st.spinner("AI Giám khảo IELTS & Giáo viên THPT đang phân tích âm vị, ngữ pháp và độ trôi chảy..."):
-                    try:
-                        rubric_prompt = f"""Bạn là Giám khảo Khảo thí IELTS Quốc tế kiêm Giáo viên Tiếng Anh THPT theo CT GDPT 2018.
+        # Micro Widget Đè để nói: Bình thường XANH LÁ, Đè lên chuyển ĐỎ RỰC rực rỡ kèm hiệu ứng sóng âm!
+        ielts_mic_code = f"""
+        <div style="background: #0f172a; border: 1.5px solid #334155; border-radius: 10px; padding: 12px 14px; font-family: system-ui, sans-serif;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                <button id="btn_hold_eng" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; border: 1.5px solid #34d399; padding: 9px 18px; border-radius: 8px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16,185,129,0.35); user-select: none; transition: all 0.2s ease;">
+                    <span id="eng_icon">🎙️</span> <span id="eng_lbl">ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)</span>
+                </button>
+                <span id="eng_status" style="color: #94a3b8; font-size: 11.5px; font-weight: 600;">(Đè chuột nói, nhả chuột để dừng)</span>
+            </div>
+            <div id="eng_box" style="min-height: 52px; background: #1e293b; border: 1px dashed #475569; border-radius: 8px; padding: 8px 12px; color: #34d399; font-size: 13.5px; font-weight: 600; line-height: 1.5;">
+                Your spoken English will appear here in real-time...
+            </div>
+        </div>
+        <script>
+        (function() {{
+            let rec = null;
+            let isRecording = false;
+            const btn = document.getElementById('btn_hold_eng');
+            const lbl = document.getElementById('eng_lbl');
+            const icon = document.getElementById('eng_icon');
+            const stat = document.getElementById('eng_status');
+            const box = document.getElementById('eng_box');
+
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
+                const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+                rec = new Speech();
+                rec.continuous = true;
+                rec.interimResults = true;
+                rec.lang = 'en-US';
+
+                rec.onstart = function() {{
+                    isRecording = true;
+                    btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                    btn.style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.7)';
+                    btn.style.borderColor = '#f87171';
+                    lbl.innerText = 'ĐANG THU ÂM... NHẢ CHUỘT ĐỂ DỪNG';
+                    icon.innerText = '🔴';
+                    stat.innerText = '● Recording speech in en-US...';
+                    stat.style.color = '#ef4444';
+                }};
+
+                rec.onresult = function(e) {{
+                    let str = '';
+                    for (let i = e.resultIndex; i < e.results.length; ++i) {{
+                        str += e.results[i][0].transcript;
+                    }}
+                    if (str) {{
+                        box.innerText = str;
+                        try {{
+                            const targetDoc = window.parent.document || document;
+                            const textareas = targetDoc.querySelectorAll('textarea');
+                            for (let ta of textareas) {{
+                                if (ta.placeholder && ta.placeholder.includes('English')) {{
+                                    ta.value = str;
+                                    ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                    ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                    break;
+                                }}
+                            }}
+                        }} catch(err) {{ console.warn(err); }}
+                    }}
+                }};
+
+                rec.onerror = function(e) {{
+                    stat.innerText = 'Mic error: ' + e.error;
+                    stat.style.color = '#f87171';
+                    stopRec();
+                }};
+
+                rec.onend = function() {{
+                    stopRec();
+                }};
+            }} else {{
+                stat.innerText = 'Web Speech Mic not supported on this browser';
+            }}
+
+            function startRec(e) {{
+                if (e) e.preventDefault();
+                if (!rec) return alert('Please use Google Chrome or Microsoft Edge for Voice Mic!');
+                if (!isRecording) {{
+                    try {{ rec.start(); }} catch(err) {{}}
+                }}
+            }}
+
+            function stopRec(e) {{
+                if (e) e.preventDefault();
+                if (rec && isRecording) {{
+                    try {{ rec.stop(); }} catch(err) {{}}
+                }}
+                isRecording = false;
+                btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                btn.style.boxShadow = '0 4px 14px rgba(16,185,129,0.35)';
+                btn.style.borderColor = '#34d399';
+                lbl.innerText = 'ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)';
+                icon.innerText = '🎙️';
+                stat.innerText = '✅ Speech captured successfully!';
+                stat.style.color = '#34d399';
+            }}
+
+            btn.addEventListener('mousedown', startRec);
+            btn.addEventListener('mouseup', stopRec);
+            btn.addEventListener('mouseleave', stopRec);
+            btn.addEventListener('touchstart', startRec);
+            btn.addEventListener('touchend', stopRec);
+        }})();
+        </script>
+        """
+        components.html(ielts_mic_code, height=125)
+
+        student_speech = st.text_area(
+            "Nội dung bài nói của em (tự động nhận diện từ Mic):", 
+            key=f"eng_speech_input_{stage_id}",
+            placeholder="Your spoken English will be captured here...",
+            height=85
+        )
+
+        btn_score_ielts = st.button("📊 Chấm Điểm 4 Tiêu Chí IELTS & Nâng Cấp Band 8.0", key=f"btn_eval_ielts_{stage_id}", type="primary", use_container_width=True)
+
+        if btn_score_ielts and student_speech.strip():
+            with st.spinner("AI Giám khảo IELTS & Giáo viên THPT đang phân tích âm vị, ngữ pháp và độ trôi chảy..."):
+                try:
+                    rubric_prompt = f"""Bạn là Giám khảo Khảo thí IELTS Quốc tế kiêm Giáo viên Tiếng Anh THPT theo CT GDPT 2018.
 Chủ đề bài học SGK: {sel_unit}
 Câu hỏi bối cảnh của Thầy AI: '{unit_info['q_reflex']}'
 Đoạn văn đọc mẫu SGK: '{unit_info['passage']}'
@@ -1899,11 +1664,12 @@ YÊU CẦU ĐÁNH GIÁ CHI TIẾT & CHUẨN SƯ PHẠM:
    - Đưa ra phiên bản mẫu nâng cấp Band 8.0 để học sinh ghi nhớ.
 4. LƯỢT HỎI PHẢN XẠ TIẾP THEO (FOLLOW-UP QUESTION):
    - Đặt 1 câu hỏi phản xạ nối tiếp bằng tiếng Anh để học sinh tiếp tục nói."""
-                        eval_ielts_res = call_gemini_with_fallback(rubric_prompt)
-                        st.success("🏆 BẢNG ĐÁNH GIÁ NĂNG LỰC NÓI TIẾNG ANH CHUẨN QUỐC TẾ:")
-                        st.markdown(eval_ielts_res)
-                    except Exception as e:
-                        st.error(f"Lỗi chấm điểm: {e}")
+                    eval_ielts_res = call_gemini_with_fallback(rubric_prompt)
+                    st.success("🏆 BẢNG ĐÁNH GIÁ NĂNG LỰC NÓI TIẾNG ANH CHUẨN QUỐC TẾ:")
+                    st.markdown(eval_ielts_res)
+                except Exception as e:
+                    st.error(f"Lỗi chấm điểm: {e}")
+
 
 
 # 8. CÁC TRẠM CHÍNH NÂNG CẤP
@@ -2270,9 +2036,6 @@ Cuối phản hồi PHẢI có khối JSON:
                     st.rerun()
                 except Exception as e: 
                     st.error(f"Lỗi phân tích bài làm: {e}")
-
-    
-    render_voice_speech_tex_and_english_evaluator('Tram 2', subject, grade_num)
 
     # BẢN ĐỒ LỖ HỔNG KHIẾN THỨC RADAR CHART ĐA MÔN LỚP 6-12
     if st.session_state.get("student_progress_history"):
