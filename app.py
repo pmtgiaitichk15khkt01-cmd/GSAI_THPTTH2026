@@ -1548,65 +1548,91 @@ def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject
             const stat = document.getElementById('eng_status');
             const box = document.getElementById('eng_box');
 
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {{
-                const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-                rec = new Speech();
-                rec.continuous = true;
-                rec.interimResults = true;
-                rec.lang = 'en-US';
-
-                rec.onstart = function() {{
-                    isRecording = true;
-                    btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-                    btn.style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.7)';
-                    btn.style.borderColor = '#f87171';
-                    lbl.innerText = 'ĐANG THU ÂM... NHẢ CHUỘT ĐỂ DỪNG';
-                    icon.innerText = '🔴';
-                    stat.innerText = '● Recording speech in en-US...';
-                    stat.style.color = '#ef4444';
-                }};
-
-                rec.onresult = function(e) {{
-                    let str = '';
-                    for (let i = e.resultIndex; i < e.results.length; ++i) {{
-                        str += e.results[i][0].transcript;
+            function setNativeValue(element, value) {{
+                try {{
+                    const valueSetter = Object.getOwnPropertyDescriptor(element, 'value').set;
+                    const prototype = Object.getPrototypeOf(element);
+                    const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
+                    if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {{
+                        prototypeValueSetter.call(element, value);
+                    }} else if (valueSetter) {{
+                        valueSetter.call(element, value);
+                    }} else {{
+                        element.value = value;
                     }}
-                    if (str) {{
-                        box.innerText = str;
-                        try {{
-                            const targetDoc = window.parent.document || document;
-                            const textareas = targetDoc.querySelectorAll('textarea');
-                            for (let ta of textareas) {{
-                                const pText = (ta.placeholder || ta.getAttribute('aria-label') || '').toLowerCase();
-                                if (pText.includes('english')) {{
-                                    ta.value = str;
-                                    ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                    ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                                    break;
+                    element.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    element.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                }} catch(e) {{
+                    element.value = value;
+                }}
+            }}
+
+            const targetWin = window.parent || window;
+            const SpeechClass = targetWin.SpeechRecognition || targetWin.webkitSpeechRecognition || window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (SpeechClass) {{
+                try {{
+                    rec = new SpeechClass();
+                    rec.continuous = true;
+                    rec.interimResults = true;
+                    rec.lang = 'en-US';
+
+                    rec.onstart = function() {{
+                        isRecording = true;
+                        btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                        btn.style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.7)';
+                        btn.style.borderColor = '#f87171';
+                        lbl.innerText = 'ĐANG THU ÂM... NHẢ CHUỘT ĐỂ DỪNG';
+                        icon.innerText = '🔴';
+                        stat.innerText = '● Recording speech in en-US...';
+                        stat.style.color = '#ef4444';
+                    }};
+
+                    rec.onresult = function(e) {{
+                        let str = '';
+                        for (let i = e.resultIndex; i < e.results.length; ++i) {{
+                            str += e.results[i][0].transcript;
+                        }}
+                        if (str) {{
+                            box.innerText = str;
+                            try {{
+                                const targetDoc = window.parent.document || document;
+                                const textareas = targetDoc.querySelectorAll('textarea');
+                                for (let ta of textareas) {{
+                                    const pText = (ta.placeholder || ta.getAttribute('aria-label') || '').toLowerCase();
+                                    if (pText.includes('english')) {{
+                                        setNativeValue(ta, str);
+                                        break;
+                                    }}
                                 }}
-                            }}
-                        }} catch(err) {{ console.warn(err); }}
-                    }}
-                }};
+                            }} catch(err) {{ console.warn(err); }}
+                        }}
+                    }};
 
-                rec.onerror = function(e) {{
-                    stat.innerText = 'Mic error: ' + e.error;
-                    stat.style.color = '#f87171';
-                    stopRec();
-                }};
+                    rec.onerror = function(e) {{
+                        console.warn("Speech Rec Error:", e.error);
+                        stat.innerText = '⚠️ Lỗi Mic: ' + e.error + ' (Nhấn Cho Phép Mic trên trình duyệt)';
+                        stat.style.color = '#f87171';
+                        isRecording = false;
+                    }};
 
-                rec.onend = function() {{
-                    stopRec();
-                }};
+                    rec.onend = function() {{
+                        if (isRecording) {{
+                            stopRec();
+                        }}
+                    }};
+                }} catch(err) {{
+                    console.warn("Speech init err:", err);
+                }}
             }} else {{
-                stat.innerText = 'Web Speech Mic not supported on this browser';
+                stat.innerText = 'Web Speech Mic không hỗ trợ trình duyệt này';
             }}
 
             function startRec(e) {{
                 if (e) e.preventDefault();
-                if (!rec) return alert('Please use Google Chrome or Microsoft Edge for Voice Mic!');
+                if (!rec) return alert('Vui lòng sử dụng Google Chrome hoặc MS Edge để dùng Mic thu âm!');
                 if (!isRecording) {{
-                    try {{ rec.start(); }} catch(err) {{}}
+                    try {{ rec.start(); }} catch(err) {{ console.warn(err); }}
                 }}
             }}
 
@@ -1621,8 +1647,10 @@ def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject
                 btn.style.borderColor = '#34d399';
                 lbl.innerText = 'ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)';
                 icon.innerText = '🎙️';
-                stat.innerText = '✅ Speech captured successfully!';
-                stat.style.color = '#34d399';
+                if (!stat.innerText.includes('Lỗi')) {{
+                    stat.innerText = '✅ Đã ghi nhận bài nói thành công!';
+                    stat.style.color = '#34d399';
+                }}
             }}
 
             btn.addEventListener('mousedown', startRec);
