@@ -90,7 +90,7 @@ flowchart LR
 - **Kiểm định Thống kê Sư phạm Chuẩn APA 7th:**
   - *Paired Samples $t$-Test:* Minh chứng sự tiến bộ có ý nghĩa thống kê vượt bậc ($p < 0.001$).
   - *Kích thước tác động Cohen's $d$:* Hiệu quả can thiệp ở mức rất lớn ($d > 0.8$).
-  - *Phổ điểm Gauss dịch chuyển:* Đường conc phân phối chuẩn dịch chuyển rõ nét về vùng điểm giỏi.
+  - *Phổ điểm Gauss dịch chuyển:* Đường cong phân phối chuẩn dịch chuyển rõ nét về vùng điểm giỏi.
 - **Phân tích Liều lượng Thời gian Tự học Tối ưu:** Hồi quy tương quan Pearson ($r$) giữa số phút học và độ tăng điểm $\rightarrow$ Xác lập khuyến nghị khoa học: **Thời gian tự học tối ưu đạt 25 - 35 phút/ngày**, tránh tình trạng lạm dụng thiết bị điện tử.
 - **Mô phỏng Mở rộng Toàn tỉnh (Monte Carlo Simulation):** Dự báo độ hội tụ phổ điểm khi áp dụng mô hình cho $N = 10.000$ học sinh.
 
