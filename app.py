@@ -2487,6 +2487,38 @@ def clean_vietnamese_math(text):
     res = re.sub(r'  +', ' ', res)
     return res.strip()
 
+def format_pedagogical_math(text):
+    if not text: return ""
+    s = str(text)
+    def wrap_eq(m):
+        eq = m.group(0).strip()
+        return f"${eq}$"
+    s = re.sub(r'(?<!\$)\b((?:y\s*=\s*)?f\(x\)\s*=\s*[^;\.,\n]+)', wrap_eq, s)
+    s = re.sub(r'(?<!\$)\b(y\s*=\s*(?:\([^)]+\)|[^\s;\.,]+)\/(?:\([^)]+\)|[^\s;\.,]+))', wrap_eq, s)
+    s = re.sub(r'(?<!\$)\b([QxymeMO]_[1-9a-z0-9]{1,2})\b(?!\$)', r'$\1$', s)
+    s = re.sub(r'(?<!\$)\b([xym]\s*=\s*[-+]?\d+(?:\.\d+)?)\b(?!\$)', r'$\1$', s)
+    s = re.sub(r'(?<!\$)([\(\[]\s*[-+]?\d+(?:\.\d+)?\s*;\s*[-+]?\d+(?:\.\d+)?\s*[\)\]])(?!\$)', r'$\1$', s)
+    s = re.sub(r'(?<!\$)\btham số ([a-z])\b(?!\$)', r'tham số $\1$', s)
+    return clean_vietnamese_math(s)
+
+def auto_extract_mslgn(q_obj):
+    if not isinstance(q_obj, dict): return q_obj
+    q_text = str(q_obj.get("q", ""))
+    matches = re.findall(r'([\[\(]\d+\s*;\s*\d+[\]\)])\s*(?:tần số|:)?\s*(\d+)', q_text, re.IGNORECASE)
+    if matches and len(matches) >= 2:
+        grps = [m[0].strip() for m in matches]
+        freqs = [int(m[1]) for m in matches]
+        cleaned_q = re.sub(r'([\[\(]\d+\s*;\s*\d+[\]\)]\s*(?:tần số|:)?\s*\d+;?\s*)+', '', q_text, flags=re.IGNORECASE).strip()
+        cleaned_q = cleaned_q.rstrip(':').strip()
+        if not cleaned_q.endswith('.'): cleaned_q += ':'
+        q_obj["q"] = cleaned_q
+        q_obj["mslgn_data"] = {
+            "title": "Bảng mẫu số liệu ghép nhóm:",
+            "groups": grps,
+            "freq": freqs
+        }
+    return q_obj
+
 def clean_question_bbt_text(q_text):
     if not q_text: return ""
     if "bảng biến thiên như sau:" in q_text:
@@ -2519,6 +2551,20 @@ with tab3:
         if not isinstance(exam, dict): return exam
         for p_key in ["p1", "p2", "p3"]:
             for q in exam.get(p_key, []):
+                # TỰ ĐỘNG TÁCH MẪU SỐ LIỆU GHÉP NHÓM TỪ DẠNG TEXT THÀNH BẢNG HTML CHUẨN
+                q = auto_extract_mslgn(q)
+                
+                # CHUẨN HÓA CÔNG THỨC TOÁN LATEX
+                if q.get("q"):
+                    q["q"] = format_pedagogical_math(q["q"])
+                
+                for s in q.get("stmts", []):
+                    if s.get("t"):
+                        s["t"] = format_pedagogical_math(s["t"])
+                
+                if q.get("opt"):
+                    q["opt"] = [format_pedagogical_math(o) for o in q["opt"]]
+
                 q_text = str(q.get("q", ""))
                 q_lower = q_text.lower()
                 
@@ -3466,7 +3512,7 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
 
         def sanitize_latex(txt):
             if not txt: return ""
-            txt_clean = clean_vietnamese_math(clean_question_bbt_text(txt))
+            txt_clean = format_pedagogical_math(clean_question_bbt_text(txt))
             pts = re.split(r'(\$.*?\$)', str(txt_clean), flags=re.DOTALL)
             for i in range(0, len(pts), 2):
                 pts[i] = re.sub(r'(?<!\\)&', r'\&', pts[i])
@@ -3608,9 +3654,10 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                         ms = q.get("mslgn_data", {})
                         grs = ms.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
                         frs = ms.get("freq", [5, 12, 18, 10, 5])
+                        grs_clean = [f"${g}$" if not str(g).startswith("$") else str(g) for g in grs]
                         latex_code += r"""\begin{center}
 \begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
-\textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
+\textbf{Nhóm} & """ + " & ".join(grs_clean) + r""" \\ \hline
 \textbf{Tần số} & """ + " & ".join([str(x) for x in frs]) + r""" \\ \hline
 \end{tabular}
 \end{center}
@@ -3676,9 +3723,10 @@ Xuất DUY NHẤT 1 khối JSON hợp lệ có dạng:
                         ms = q.get("mslgn_data", {})
                         grs = ms.get("groups", ["[0; 20)", "[20; 40)", "[40; 60)", "[60; 80)", "[80; 100)"])
                         frs = ms.get("freq", [5, 12, 18, 10, 5])
+                        grs_clean = [f"${g}$" if not str(g).startswith("$") else str(g) for g in grs]
                         latex_code += r"""\begin{center}
 \begin{tabular}{|c|""" + "c|"*len(grs) + r"""} \hline
-\textbf{Nhóm} & """ + " & ".join(grs) + r""" \\ \hline
+\textbf{Nhóm} & """ + " & ".join(grs_clean) + r""" \\ \hline
 \textbf{Tần số} & """ + " & ".join([str(x) for x in frs]) + r""" \\ \hline
 \end{tabular}
 \end{center}
