@@ -16,12 +16,13 @@ import base64
 import os
 import math
 import scipy.stats as stats
+import concurrent.futures
 import plotly.express as px
 import urllib.parse
 import ast
 
 # ==============================================================================
-# 1. CẤU HÌNH TRANG WEB (BẮT BUỘC ĐẦU TIÊN)
+# 1. CẤU HÌNH TRANG WEB (BẮT BUỘC Ở DÒNG ĐẦU TIÊN)
 # ==============================================================================
 st.set_page_config(
     page_title="Gia Sư AI - Hệ Sinh Thái Lớp Học Đảo Ngược",
@@ -34,65 +35,292 @@ st.set_page_config(
 # KHIÊN BẢO VỆ CHỐNG SẬP APP 
 # ==============================================================================
 try:
-    # --- ĐỒNG BỘ GIỜ VIỆT NAM (GMT+7) ---
+    # --- 1. ĐỒNG BỘ GIỜ VIỆT NAM (GMT+7) CHUẨN XÁC ---
     VN_TZ = timezone(timedelta(hours=7))
     def get_vn_time():
         return datetime.now(VN_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
+    # --- ĐỌC SECRETS AN TOÀN ---
     def get_secret(name, default=""):
         try:
             return st.secrets.get(name, default)
         except Exception:
             return default
 
+    # np.trapezoid chỉ có ở NumPy >= 2.0; bản cũ dùng np.trapz
     _trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz")
 
-    # --- KHỞI TẠO BỘ NHỚ PHIÊN ---
-    for key in ["messages", "analytics_logs", "feedback_logs", "parsed_quiz", "va_loi_logs", "student_progress_history"]:
+    # --- 2. KHỞI TẠO BỘ NHỚ PHIÊN & BỘ ĐẾM THỰC NGHIỆM TỰ ĐỘNG ---
+    for key in ["messages", "analytics_logs", "feedback_logs", "parsed_quiz", "va_loi_logs"]:
         if key not in st.session_state: st.session_state[key] = []
-    for key in ["tram1_count", "tram2_count", "tram3_count", "global_exam_count"]:
-        if key not in st.session_state: st.session_state[key] = 0
+    if "tram1_count" not in st.session_state: st.session_state.tram1_count = 0
+    if "tram2_count" not in st.session_state: st.session_state.tram2_count = 0
+    if "tram3_count" not in st.session_state: st.session_state.tram3_count = 0
+    if "chat" not in st.session_state: st.session_state.chat = None
     if "current_lesson" not in st.session_state: st.session_state.current_lesson = ""
     if "current_topic" not in st.session_state: st.session_state.current_topic = ""
     if "lab_data" not in st.session_state: st.session_state.lab_data = None
     if "quiz_states" not in st.session_state: st.session_state.quiz_states = {}
     if "global_stats_loaded" not in st.session_state: st.session_state.global_stats_loaded = False
+    if "global_exam_count" not in st.session_state: st.session_state.global_exam_count = 0
     if "global_logs" not in st.session_state: st.session_state.global_logs = []
+    if "student_progress_history" not in st.session_state: st.session_state.student_progress_history = []
     if "active_context_key" not in st.session_state: st.session_state.active_context_key = None
-    if "working_model" not in st.session_state: st.session_state.working_model = None
 
     APP_URL = get_secret("APP_URL", "https://gsaithptth-khkt2026.streamlit.app/")
 
-    # --- CSS GIAO DIỆN ---
+    # ==============================================================================
+    # CSS GIAO DIỆN CHÍNH
+    # ==============================================================================
     st.markdown("""
     <style>
         .block-container { padding-top: 2rem !important; padding-bottom: 1rem !important; }
-        .brand-container { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px; padding: 10px; background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); }
+        .brand-container {
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            margin-bottom: 20px; padding: 10px;
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+            border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
         .school-icon { width: 45px; height: auto; transition: transform 0.3s ease; }
         .school-icon:hover { transform: scale(1.1); }
-        .thiennhan-logo { width: 115px; height: auto; border-radius: 6px; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); border: 1.5px solid #38bdf8; }
+        .thiennhan-logo {
+            width: 115px; height: auto; border-radius: 6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); border: 1.5px solid #38bdf8;
+        }
         .main-header { text-align: center; padding: 0px 0 15px 0; border-bottom: 1px dashed #475569; margin-bottom: 25px; }
-        .main-title { background: -webkit-linear-gradient(45deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 2.5rem; font-weight: 900; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1.5px; }
+        .main-title { 
+            background: -webkit-linear-gradient(45deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-size: 2.5rem; font-weight: 900; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1.5px;
+        }
         .sub-title { color: #cbd5e1; font-size: 1.15rem; font-weight: 500;}
-        .badge-tag { background: rgba(15, 23, 42, 0.7); border: 1px solid #38bdf8; color: #38bdf8; padding: 5px 15px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; display: inline-block; margin-top: 8px; margin-right: 8px; box-shadow: 0 2px 5px rgba(56, 189, 248, 0.2); }
-        .stButton > button { background: linear-gradient(135deg, #0284c7, #3b82f6) !important; color: white !important; border-radius: 10px !important; border: none !important; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3) !important; transition: all 0.3s ease !important; font-weight: 700 !important; }
-        .stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6) !important; background: linear-gradient(135deg, #0369a1, #2563eb) !important; }
-        .stTabs [data-baseweb="tab-list"] { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border-radius: 12px; padding: 5px; gap: 8px; border: 1px solid #334155; }
-        .stTabs [data-baseweb="tab"] { height: 50px; border-radius: 8px; border: none; color: #94a3b8; font-weight: 600; transition: all 0.3s; }
-        .stTabs [aria-selected="true"] { background: rgba(56, 189, 248, 0.15) !important; color: #38bdf8 !important; border-bottom: 3px solid #38bdf8 !important; box-shadow: inset 0 -3px 10px rgba(56, 189, 248, 0.1); }
+        .badge-tag { 
+            background: rgba(15, 23, 42, 0.7); border: 1px solid #38bdf8; color: #38bdf8; 
+            padding: 5px 15px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; 
+            display: inline-block; margin-top: 8px; margin-right: 8px; box-shadow: 0 2px 5px rgba(56, 189, 248, 0.2);
+        }
+        .stButton > button {
+            background: linear-gradient(135deg, #0284c7, #3b82f6) !important; color: white !important;
+            border-radius: 10px !important; border: none !important; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3) !important;
+            transition: all 0.3s ease !important; font-weight: 700 !important; padding: 0.5rem 1rem !important;
+        }
+        .stButton > button:hover {
+            transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6) !important;
+            background: linear-gradient(135deg, #0369a1, #2563eb) !important;
+        }
+        .stTabs [data-baseweb="tab-list"] { 
+            background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 5px; gap: 8px; border: 1px solid #334155;
+        }
+        .stTabs [data-baseweb="tab"] { 
+            height: 50px; white-space: pre-wrap; background-color: transparent; 
+            border-radius: 8px; border: none; color: #94a3b8; font-weight: 600; transition: all 0.3s;
+        }
+        .stTabs [aria-selected="true"] { 
+            background: rgba(56, 189, 248, 0.15) !important; color: #38bdf8 !important; 
+            border-bottom: 3px solid #38bdf8 !important; box-shadow: inset 0 -3px 10px rgba(56, 189, 248, 0.1);
+        }
+        .lab-box-container { 
+            background: linear-gradient(145deg, #0f172a, #1e293b); border: 2px solid #0ea5e9; 
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.2), inset 0 0 15px rgba(14, 165, 233, 0.05);
+            padding: 25px; border-radius: 15px; margin-top: 25px; margin-bottom: 20px;
+            position: relative; overflow: hidden;
+        }
+        .lab-box-container::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+            background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+        }
+        [data-testid="stChatMessage"] {
+            border-radius: 15px; padding: 15px; margin-bottom: 12px;
+            background: rgba(30, 41, 59, 0.6); border: 1px solid #475569; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
         .short-link-badge { background-color: #1e293b; border: 1px dashed #38bdf8; padding: 8px 12px; border-radius: 8px; font-family: 'Courier New', Courier, monospace; font-size: 0.8rem; color: #38bdf8; text-align: center; margin: 10px 0; word-break: break-all; }
     </style>
     """, unsafe_allow_html=True)
 
     # ==============================================================================
-    # 2. CÁC HÀM BỔ TRỢ (HELPER FUNCTIONS)
+    # 2. THANH BÊN (SIDEBAR) & LIÊN KẾT MÔN HỌC KHỐI LỚP
     # ==============================================================================
-    ALL_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3-flash-preview"]
-    DEFAULT_PEDAGOGICAL_SYSTEM_INSTRUCTION = """Bạn là Gia Sư AI Sư Phạm hàng đầu Việt Nam, hỗ trợ học sinh học tập theo đúng chuẩn CT GDPT 2018 (SGK KNTT).
-    NGUYÊN TẮC BẮT BUỘC: 
-    1. TOÁN: Tuyệt đối CẤM hàm bậc 4 trùng phương. Khảo sát Lớp 12 chỉ dùng Bậc 3, Phân thức 1/1, Phân thức 2/1.
-    2. HÓA & KHTN: Dùng 100% danh pháp IUPAC.
-    3. TIẾNG ANH: Viết 100% bằng TIẾNG ANH cho từ vựng, ngữ pháp. Không dùng tiếng Việt trong bài đọc/trắc nghiệm."""
+    def get_local_img_as_base64(file_path):
+        try:
+            with open(file_path, "rb") as img_file: return base64.b64encode(img_file.read()).decode('utf-8')
+        except Exception: return ""
+
+    logo_b64 = get_local_img_as_base64("LOGO THIỆN NHÂN 3D.jpg")
+    logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" class="thiennhan-logo" alt="Logo">' if logo_b64 else '<div style="background: linear-gradient(45deg, #0f172a, #1e293b); padding: 8px 12px; border-radius: 8px; color: #f8fafc; font-weight: 800; font-size: 14px; border: 1.5px solid #38bdf8; box-shadow: 0 0 10px rgba(56,189,248,0.4);">THIỆN NHÂN</div>'
+
+    school_icon_svg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2338bdf8'><path d='M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z'/></svg>"
+
+    st.sidebar.markdown(f'<div class="brand-container"><img src="{school_icon_svg}" class="school-icon" alt="Icon Trường">{logo_html}</div><div style="text-align: center; margin-bottom: 15px;"><h2 style="color: #38bdf8; font-weight: 800; font-size: 1.8rem; margin: 0; text-shadow: 0px 2px 4px rgba(0,0,0,0.5);">THIẾT LẬP HỌC TẬP</h2></div>', unsafe_allow_html=True)
+
+    with st.sidebar.expander("📱 Quét mã QR vào app trên điện thoại", expanded=False):
+        qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(APP_URL, safe='')}"
+        st.image(qr_api_url, caption="Bật camera Zalo/iPhone quét mượt mà!", use_container_width=True)
+        st.markdown(f'<div class="short-link-badge">🔗 {APP_URL}</div>', unsafe_allow_html=True)
+
+    with st.sidebar.expander("📲 Cài đặt Icon App vào Điện thoại & Máy tính (PWA)", expanded=False):
+        st.markdown("""
+        **Cách tạo Icon App mở trực tiếp (không cần gõ web/quét mã):**
+        - 🤖 **Android (Chrome/Cốc Cốc):** Bấm biểu tượng menu $\\vdots$ ở góc trên ➔ Chọn **"Cài đặt ứng dụng"** (hoặc **"Thêm vào Màn hình chính"**).
+        - 🍏 **iPhone / iPad (Safari):** Bấm nút **Chia sẻ** (biểu tượng $\\uparrow$) ➔ Kéo xuống chọn **"Thêm vào MH chính" (Add to Home Screen)**.
+        - 💻 **Máy tính (Chrome/Edge):** Bấm biểu tượng Cài đặt trên thanh địa chỉ (góc phải thanh URL) để cài app vào Desktop. Hoặc vào `chrome://apps` tạo lối tắt.
+        """)
+
+    # JAVASCRIPT ĐỒNG BỘ LOCALSTORAGE CHO THIẾT BỊ HỌC SINH
+    st.markdown("""
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        try {
+            const savedKey = localStorage.getItem("GSAI_USER_CUSTOM_KEY");
+            if (savedKey && !window.keyRestored) {
+                window.keyRestored = true;
+                console.log("GSAI: Đã phục hồi cấu hình cá nhân.");
+            }
+        } catch(e) {}
+    });
+    </script>
+    """, unsafe_allow_html=True)
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔑 ĐƯỜNG TRUYỀN AI CÁ NHÂN (0 ĐỒNG)")
+
+    st.sidebar.link_button("👉 Lấy Key riêng miễn phí (15s)", "https://aistudio.google.com/apikey", use_container_width=True)
+    user_custom_key = st.sidebar.text_input("Dán mã API Key của em vào đây:", type="password", placeholder="AIzaSy...")
+
+    raw_api_key = get_secret("GEMINI_API_KEY")
+    raw_sheet_url = get_secret("GOOGLE_SHEET_URL")
+    sheet_webhook_url = "".join(raw_sheet_url.split()) if raw_sheet_url else ""
+
+    sheet_view_url_secret = get_secret("GOOGLE_SHEET_VIEW_URL")
+    DEFAULT_SHEET_VIEW_URL = "https://docs.google.com/spreadsheets/d/1fnG9qxmtQ5sa1C8Sb5Z9hepzB2G8asNVgSk05p7Pu9M/edit?gid=0#gid=0"
+    if sheet_view_url_secret:
+        sheet_view_url = "".join(sheet_view_url_secret.split())
+        if "1InG9qxmTQ5saIc8Sb5Z9nepZbZG8asNVgSk05p7Pu9M" in sheet_view_url:
+            sheet_view_url = DEFAULT_SHEET_VIEW_URL
+    else:
+        sheet_view_url = DEFAULT_SHEET_VIEW_URL
+
+    if not st.session_state.global_stats_loaded and sheet_webhook_url:
+        try:
+            res = requests.get(sheet_webhook_url, timeout=3)
+            if res.status_code == 200:
+                data_gs = res.json()
+                if isinstance(data_gs, list):
+                    st.session_state.global_logs = data_gs
+                    st.session_state.global_exam_count = len([x for x in data_gs if x.get('type') == 'EXAM_RESULT'])
+            st.session_state.global_stats_loaded = True
+        except Exception:
+            pass
+
+    admin_keys_pool = [k.strip() for k in raw_api_key.split(",")] if raw_api_key else []
+    active_keys_pool = [user_custom_key.strip()] if user_custom_key.strip() else admin_keys_pool
+
+    if not active_keys_pool:
+        st.error("⚠️ Hệ thống chưa tìm thấy API Key nào khả dụng!")
+        st.stop()
+    elif user_custom_key.strip(): st.sidebar.success("🟢 Em đang dùng đường truyền riêng siêu tốc!")
+    else: st.sidebar.info("🔵 Đang dùng đường truyền chung của Trường")
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 👤 THÔNG TIN HỌC SINH")
+    student_name_input = st.sidebar.text_input("Họ và tên của em:", placeholder="Ví dụ: Nguyễn Văn A...")
+    student_name = student_name_input.strip() if student_name_input.strip() else "Ẩn danh"
+
+    all_grades = [f"Lớp {i}" for i in range(6, 13)]
+    grade = st.sidebar.selectbox("🎯 Chọn khối lớp:", all_grades, index=6)
+    grade_num = int(grade.split()[1])
+
+    available_subjects = (
+        ["Toán học", "Khoa học tự nhiên", "Ngữ văn", "Tiếng Anh", "Lịch sử & Địa lý", "Tin học", "Giáo dục công dân"]
+        if grade_num <= 9 else
+        ["Toán học", "Vật lý", "Hóa học", "Sinh học", "Ngữ văn", "Tiếng Anh", "Lịch sử", "Địa lý", "Tin học", "Giáo dục kinh tế và pháp luật"]
+    )
+    subject = st.sidebar.selectbox("📚 Môn học cần hỗ trợ:", available_subjects)
+
+    # TỰ ĐỘNG ĐỒNG BỘ NGỮ CẢNH ĐA MÔN & XÓA SẠCH DỮ LIỆU CŨ KHI ĐỔI MÔN/LỚP
+    current_context_key = f"{grade}_{subject}"
+    previous_context_key = st.session_state.get("active_context_key")
+
+    if previous_context_key is not None and previous_context_key != current_context_key:
+        st.session_state.current_lesson = ""
+        st.session_state.current_topic = ""
+        st.session_state.parsed_quiz = []
+        st.session_state.quiz_states = {}
+        st.session_state.lab_data = None
+        st.session_state.messages = []
+        st.session_state.chat = None
+        st.session_state.exam_data = None
+        st.session_state.exam_answers = {}
+        st.session_state.exam_state = "config"
+        st.session_state.tram3_chat_messages = []
+        st.session_state.exam_code = str(random.randint(1011, 9999))
+        st.toast(f"🔄 Đã chuyển sang không gian học tập môn {subject} - {grade}!", icon="✨")
+
+    st.session_state.active_context_key = current_context_key
+
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("🛠️ Báo lỗi ứng dụng & Góp ý trải nghiệm", expanded=False):
+        fb_category = st.selectbox("Loại vấn đề gặp phải:", ["📷 Lỗi nhận diện chữ", "📊 Lỗi đồ thị Lab", "🤖 AI giải thích khó hiểu", "⏳ Ứng dụng chậm", "💡 Đề xuất mới"])
+        fb_rating = st.feedback("stars", key="fb_stars")
+        fb_detail = st.text_area("Mô tả chi tiết:", key="fb_text")
+        if st.button("📤 Gửi phản hồi", use_container_width=True) and fb_detail.strip():
+            fb_entry = {"time": get_vn_time(), "name": student_name, "grade": grade, "subject": subject, "category": fb_category, "rating": fb_rating + 1 if fb_rating is not None else 5, "detail": fb_detail.strip(), "type": "USER_FEEDBACK"}
+            st.session_state.feedback_logs.append(fb_entry)
+            if sheet_webhook_url:
+                try: requests.post(sheet_webhook_url, json=fb_entry, timeout=5)
+                except: pass
+            st.success("Đã gửi phản hồi thành công!")
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📈 THỐNG KÊ THỰC NGHIỆM (KHKT)")
+    col_sb1, col_sb2, col_sb3 = st.sidebar.columns(3)
+    with col_sb1:
+        st.metric("Tự học (T1)", f"{st.session_state.tram1_count}")
+    with col_sb2:
+        st.metric("Socratic (T2)", f"{st.session_state.tram2_count}")
+    with col_sb3:
+        current_exam_count = len([x for x in st.session_state.get('analytics_logs', []) if x.get('type') == 'EXAM_RESULT'])
+        total_display_count = max(current_exam_count, st.session_state.get('global_exam_count', 0))
+        st.metric("Khảo thí (T3)", f"{total_display_count}")
+        
+    with st.sidebar.expander("📚 SGK Điện Tử (Kết Nối Tri Thức)", expanded=False):
+        sgk_url = "https://www.vniteach.com/sach-dien-tu-ket-noi-tri-thuc/"
+        st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(sgk_url, safe='')}", use_container_width=True)
+        st.link_button("🌐 Mở sách điện tử ngay", sgk_url, use_container_width=True)
+
+    st.sidebar.info("💡 **Triết lý:** Dưỡng thiện tâm - Ươm nhân tài • Dẫn dắt tư duy tự học!")
+
+    # ==============================================================================
+    # 3. ĐIỀU PHỐI AI BỀN BỈ (GIA PHẢ 3.X TỐI THƯỢNG THEO LỆNH GOOGLE)
+    # ==============================================================================
+    ALL_GEMINI_MODELS = [
+        "gemini-3.8-flash",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview"
+    ]
+
+    if "working_model" not in st.session_state: st.session_state.working_model = None
+
+    DEFAULT_PEDAGOGICAL_SYSTEM_INSTRUCTION = """Bạn là Gia Sư AI Sư Phạm hàng đầu Việt Nam, hỗ trợ học sinh học tập theo đúng chuẩn Chương Trình Giáo Dục Phổ Thông 2018 (SGK Kết Nối Tri Thức với Cuộc Sống - NXB Giáo Dục Việt Nam & Cục Quản Lý Chất Lượng - Bộ GD&ĐT).
+NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CT GDPT 2018:
+1. MÔN TOÁN HỌC:
+   - TUYỆT ĐỐI NGHIÊM CẤM ra đề/giải bài về hàm số bậc bốn trùng phương y = ax^4 + bx^2 + c (đã BỊ BỎ HOÀN TOÀN khỏi CT 2018).
+   - Khảo sát hàm số Lớp 12 CHỈ ĐƯỢC PHÉP DÙNG 3 LOẠI HÀM:
+     + Hàm đa thức bậc ba: y = ax^3 + bx^2 + cx + d (a != 0)
+     + Hàm phân thức bậc nhất / bậc nhất: y = (ax + b) / (cx + d)
+     + Hàm phân thức bậc hai / bậc nhất: y = (ax^2 + bx + c) / (px + q) (có tiệm cận xiên)
+   - Lớp 10: Hàm bậc nhất & Parabol bậc hai y = ax^2 + bx + c.
+   - Lớp 11: Cấp số cộng/nhân, Hàm lượng giác, Giới hạn, Đạo hàm, Mẫu số liệu ghép nhóm.
+2. MÔN HÓA HỌC & KHOA HỌC TỰ NHIÊN:
+   - 100% sử dụng danh pháp quốc tế IUPAC chuẩn CT 2018 (Alkane, Alkene, Alkyne, Alcohol, Aldehyde, Carboxylic acid, Ester, Amine, Amino acid, Carbohydrate, Polymer...). TUYỆT ĐỐI KHÔNG dùng tên cũ (Ancol, Anđehit, Axit axetic, Benzen...).
+3. MÔN NGỮ VĂN:
+   - 100% ngữ liệu ĐỌC HIỂU và VIẾT BẮT BUỘC lấy từ tác phẩm văn học, báo chí, đời sống bên ngoài SGK (không lấy bài có sẵn trong SGK), chuẩn ma trận đề thi tốt nghiệp THPT 2025-2026.
+4. MÔN TIẾNG ANH:
+   - Bám sát chuẩn khung năng lực ngoại ngữ 6 bậc VN / CEFR (A2/B1/B2) và định dạng đề thi THPT 2026.
+   - TUYỆT ĐỐI BẮT BUỘC: Toàn bộ từ vựng, đoạn văn, câu hỏi trắc nghiệm, các lựa chọn đáp án (A, B, C, D), và bài tập ngữ pháp PHẢI ĐƯỢC VIẾT 100% BẰNG TIẾNG ANH. Chỉ dùng tiếng Việt khi giải thích hoặc phân tích phương pháp giải.
+5. QUY TẮC CÔNG THỨC TOÁN:
+   - TUYỆT ĐỐI KHÔNG bọc chữ tiếng Việt có dấu trong dấu $...$. Dấu $...$ chỉ dùng cho công thức toán ($x$, $f(x)$)."""
 
     def call_gemini_with_fallback(prompt_or_contents, system_instruction=None, json_mode=False):
         model_queue = [st.session_state.working_model] + [m for m in ALL_GEMINI_MODELS if m != st.session_state.working_model] if st.session_state.working_model else ALL_GEMINI_MODELS
@@ -119,14 +347,19 @@ try:
                             status_box.write(f"Kênh `{current_model}` đã bị chặn, chuyển kênh...")
                             break  
                         elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                            status_box.write("Kênh đang nghẽn, tự động đổi API Key...")
                             continue  
                         elif any(err in err_str for err in ["503", "UNAVAILABLE", "high demand", "overloaded"]):
+                            status_box.write(f"Máy chủ `{current_model}` bận, thử kênh khác...")
                             time.sleep(1) 
                             break  
                         else: break  
         status_box.update(label="Tất cả các kết nối hiện đang quá tải. Hãy nghỉ ngơi 1 phút nhé!", state="error")
         raise Exception(f"Hệ thống đang quá tải. Lỗi kỹ thuật: {last_error_msg}")
 
+    # ==============================================================================
+    # 4. CÁC HÀM PHÂN TÍCH VÀ HIỂN THỊ (PARSE, CLEAN, MERMAID, LAB)
+    # ==============================================================================
     def clean_vietnamese_math(text):
         if not text: return ""
         vn_chars = r'[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ]'
@@ -136,76 +369,419 @@ try:
                 return f"<i>{content}</i>" if content.startswith("(") and content.endswith(")") else f" {content} "
             return f"${content}$"
         res = re.sub(r'\$(.*?)\$', fix_math, str(text))
-        return re.sub(r'  +', ' ', res).strip()
+        res = re.sub(r'  +', ' ', res)
+        return res.strip()
 
     def clean_question_bbt_text(q_text):
         if not q_text: return ""
         if "bảng biến thiên như sau:" in q_text:
             parts = q_text.split("bảng biến thiên như sau:")
             prefix = parts[0].rstrip() + " có bảng biến thiên như sau:"
-            match_ask = re.search(r'([A-ZÀ-Ỹ][^\.\n]*?(?:Có bao nhiêu|Hàm số|Tìm|Điểm|Mệnh đề|Khẳng định|Giá trị|Tập hợp|Khoảng cách)[^\.\n]*?\?.*)$', parts[1].strip(), re.DOTALL)
-            return f"{prefix} {match_ask.group(1).strip()}" if match_ask else prefix
+            tail = parts[1].strip()
+            match_ask = re.search(r'([A-ZÀ-Ỹ][^\.\n]*?(?:Có bao nhiêu|Hàm số|Tìm|Điểm|Mệnh đề|Khẳng định|Giá trị|Tập hợp|Khoảng cách)[^\.\n]*?\?.*)$', tail, re.DOTALL)
+            if match_ask:
+                return f"{prefix} {match_ask.group(1).strip()}"
+            else:
+                return prefix
         return q_text
 
     def parse_quiz_questions(text):
         questions = []
         part3_match = re.search(r'(?i)###\s*PHẦN\s*3', text)
         part2_text = text[:part3_match.start()] if part3_match else text
-        parts = re.split(r'(?i)(?:\[Q\d+\]|C[âa]u\s*\d+[\.\:]?)', part2_text)
+
+        pattern = r'(?i)(?:\[Q\d+\]|C[âa]u\s*\d+[\.\:]?)'
+        parts = re.split(pattern, part2_text)
+        
         for part in parts[1:]:
             lines = [l.strip() for l in part.strip().split('\n') if l.strip()]
             if not lines: continue
             q_header = lines[0]
             level, options, correct, explain = "Vận dụng", [], "A", "Gợi ý tự suy luận!"
+            
             match = re.search(r'(?i)\[Mức độ:\s*(.*?)\]', q_header)
             if match:
                 level = match.group(1)
                 q_header = re.sub(r'(?i)\[Mức độ:\s*.*?\]', '', q_header).strip()
+                
             q_text_lines = [q_header]
             parsing_options = False
+            
             for line in lines[1:]:
                 clean_line = re.sub(r'(?i)^\*{0,2}([A-D])\b[\.\:]?\*{0,2}\s*', r'\1. ', line)
-                if re.match(r'(?i)###\s*PHẦN\s*3', line): break
+                
+                if re.match(r'(?i)###\s*PHẦN\s*3', line):
+                    break
+                    
                 if clean_line.upper().startswith(('A.', 'B.', 'C.', 'D.')):
-                    parsing_options = True; options.append(clean_line)
+                    parsing_options = True
+                    options.append(clean_line)
                 elif re.search(r'(?i)^(CORRECT|ĐÁP ÁN|Đáp án đúng)\s*:', line):
                     ext = re.sub(r'[^A-D]', '', line.split(":")[-1].upper())
                     if ext: correct = ext[0]
                 elif re.search(r'(?i)^(EXPLAIN|GIẢI THÍCH|Gợi ý)\s*:', line):
                     explain = line.split(":", 1)[-1].strip()
                 else:
-                    if not parsing_options: q_text_lines.append(line)
-                    elif options and not clean_line.upper().startswith(('A.', 'B.', 'C.', 'D.')): explain += " " + line
+                    if not parsing_options:
+                        q_text_lines.append(line)
+                    elif options and not clean_line.upper().startswith(('A.', 'B.', 'C.', 'D.')):
+                        explain += " " + line
+                            
             if len(options) >= 4:
-                questions.append({"question": " ".join(q_text_lines).strip(), "level": level, "options": options[:4], "correct": correct, "explain": explain})
+                questions.append({
+                    "question": " ".join(q_text_lines).strip(),
+                    "level": level,
+                    "options": options[:4],
+                    "correct": correct,
+                    "explain": explain
+                })
         return questions
 
     def create_pedagogical_tts_component(raw_text: str, subject_name: str, comp_key: str):
-        if subject_name != "Tiếng Anh": return
-        tts_html = f"""<script>
+        if subject_name != "Tiếng Anh":
+            return
+        tts_html = f"""
+        <script>
         (function() {{
             if (window.__english_tts_global_injected) return;
             window.__english_tts_global_injected = true;
+            let currentRate = 0.92;
+            let lastSpoken = "";
+            let lastSpeakTime = 0;
+            function getBestEnglishVoice() {{
+                const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+                return voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Jenny') || v.name.includes('Guy') || v.name.includes('US') || v.name.includes('Samantha') || v.name.includes('Aria'))) ||
+                       voices.find(v => v.lang.startsWith('en')) || null;
+            }}
             window.speakEnglishText = function(text) {{
                 if (!text || !window.speechSynthesis) return;
-                text = text.replace(/^[A-Da-d][.:)]\\s*/, '').replace(/[*#`_\\[\\]()]/g, ' ').trim();
-                if (!/[a-zA-Z]/.test(text) || /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(text)) return;
+                text = text.trim();
+                text = text.replace(/^[A-Da-d][.:)]\\s*/, '').replace(/[*#`_~\\[\\]()]/g, ' ').trim();
+                if (!text || text.length < 2 || text.length > 350) return;
+                const viRegex = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+                if (viRegex.test(text)) return;
+                if (!/[a-zA-Z]/.test(text)) return;
+                const now = Date.now();
+                if (text.toLowerCase() === lastSpoken.toLowerCase() && (now - lastSpeakTime) < 1000) return;
+                lastSpoken = text;
+                lastSpeakTime = now;
                 try {{
                     window.speechSynthesis.cancel();
                     const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'en-US'; u.rate = 0.92;
-                    const v = window.speechSynthesis.getVoices().find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('US'))) || window.speechSynthesis.getVoices().find(v => v.lang.startsWith('en'));
-                    if (v) u.voice = v;
+                    u.lang = 'en-US';
+                    u.rate = currentRate;
+                    u.pitch = 1.0;
+                    const voice = getBestEnglishVoice();
+                    if (voice) u.voice = voice;
                     window.speechSynthesis.speak(u);
-                }} catch(e) {{}}
+                }} catch(err) {{
+                    console.warn("TTS error:", err);
+                }}
             }};
-            document.addEventListener("mouseup", () => {{ const t = (window.parent.document||document).getSelection().toString().trim(); if(t) window.speakEnglishText(t); }});
-            document.addEventListener("click", (e) => {{
-                const btn = e.target.closest('.custom-speak-btn');
-                if(btn) {{ const span = btn.querySelector('.hidden-speak-text'); if(span) window.speakEnglishText(span.innerText); }}
-            }}, true);
-        }})();</script>"""
+            function handleSelectionToSpeak() {{
+                try {{
+                    const targetDoc = window.parent.document || document;
+                    const sel = targetDoc.getSelection();
+                    if (!sel) return;
+                    let text = sel.toString().trim();
+                    if (text && window.speakEnglishText) window.speakEnglishText(text);
+                }} catch(e) {{}}
+            }}
+            function handleElementClickToSpeak(event) {{
+                try {{
+                    const el = event.target;
+                    if (!el) return;
+                    const customBtn = el.closest('.custom-speak-btn');
+                    if (customBtn) {{
+                        const hiddenSpan = customBtn.querySelector('.hidden-speak-text');
+                        if (hiddenSpan && hiddenSpan.innerText && window.speakEnglishText) {{
+                            return window.speakEnglishText(hiddenSpan.innerText);
+                        }}
+                    }}
+                    const radioLabel = el.closest('label[data-baseweb="radio"]') || el.closest('[data-testid="stRadio"] label');
+                    if (radioLabel) {{
+                        const labelText = radioLabel.innerText || radioLabel.textContent || "";
+                        if (labelText && window.speakEnglishText) return window.speakEnglishText(labelText);
+                    }}
+                }} catch(e) {{}}
+            }}
+            try {{
+                const targetDoc = window.parent.document || document;
+                if (window.parent) window.parent.speakEnglishText = window.speakEnglishText;
+                targetDoc.addEventListener("mouseup", handleSelectionToSpeak);
+                targetDoc.addEventListener("touchend", handleSelectionToSpeak);
+                targetDoc.addEventListener("click", handleElementClickToSpeak, true);
+            }} catch(e) {{}}
+        }})();
+        </script>
+        """
         components.html(tts_html, height=0)
+
+    def render_voice_speech_tex_and_english_evaluator(stage_id: str, current_subject: str, current_grade: int):
+        if current_subject != "Tiếng Anh" or stage_id != 'Tram 1':
+            return
+        st.markdown("---")
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 1.5px solid #38bdf8; border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">🇬🇧</span>
+                    <div>
+                        <span style="color: #38bdf8; font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">PHÒNG THỰC HÀNH NÓI TIẾNG ANH PHẢN XẠ 1-1 BẢN NGỮ (AI SPEAKING LAB)</span>
+                        <div style="color: #94a3b8; font-size: 12.5px; margin-top: 2px;">
+                            💡 <b>Mẹo học sinh:</b> Click nút 🔊 bên cạnh từ/cụm từ hoặc <b>bôi đen (select text)</b> bất kỳ đoạn tiếng Anh nào để nghe phát âm chuẩn US (en-US).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        create_pedagogical_tts_component("", "Tiếng Anh", f"init_{stage_id}")
+
+        curriculum_english_units = {
+            "Unit 1: Life stories & Inspiring People": {
+                "vocab": [
+                    {"word": "Perseverance", "ipa": "/ˌpɜːsɪˈvɪərəns/", "meaning": "Sự kiên trì, bền chí"},
+                    {"word": "Inspirational", "ipa": "/ˌɪnspəˈreɪʃənl/", "meaning": "Truyền cảm hứng"},
+                    {"word": "Distinguished", "ipa": "/dɪˈstɪŋɡwɪʃt/", "meaning": "Xuất chúng, lỗi lạc"},
+                    {"word": "Dedication", "ipa": "/ˌdedɪˈkeɪʃn/", "meaning": "Sự cống hiến tận tụy"}
+                ],
+                "passage": "Uncle Ho devoted his entire life to national liberation, inspiring generations of Vietnamese students to study diligently and cultivate personal integrity.",
+                "q_reflex": "Who is a historical or modern figure that inspired you the most in your life? Explain why."
+            },
+            "Unit 2: A Green Planet & Environmental Protection": {
+                "vocab": [
+                    {"word": "Biodiversity", "ipa": "/ˌbaɪəʊdaɪˈvɜːsəti/", "meaning": "Đa dạng sinh học"},
+                    {"word": "Deforestation", "ipa": "/diːˌfɒrɪˈsteɪʃn/", "meaning": "Nạn phá rừng"},
+                    {"word": "Sustainability", "ipa": "/səˌsteɪnəˈbɪləti/", "meaning": "Sự phát triển bền vững"},
+                    {"word": "Carbon footprint", "ipa": "/ˌkɑːbən ˈfʊtprɪnt/", "meaning": "Dấu chân carbon"}
+                ],
+                "passage": "Transitioning to renewable clean energy and minimizing single-use plastic are decisive steps to preserve Earth's climate stability.",
+                "q_reflex": "What practical actions can high school students in Vietnam take to reduce plastic waste on campus?"
+            }
+        }
+
+        sel_unit = st.selectbox(
+            "📚 Chọn Chủ Đề Bài Học SGK Kết Nối Tri Thức:",
+            list(curriculum_english_units.keys()),
+            key=f"unit_eng_sel_{stage_id}"
+        )
+        unit_info = curriculum_english_units[sel_unit]
+
+        col_left_data, col_right_speak = st.columns([1.1, 1.1])
+
+        with col_left_data:
+            st.markdown("##### 📖 1. Từ Vựng Trọng Tâm SGK (New Words):")
+            for v in unit_info["vocab"]:
+                v_word, v_ipa, v_meaning = v['word'], v['ipa'], v['meaning']
+                btn_play_code = f"""
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 6px;">
+                    <div>
+                        <span style="color: #38bdf8; font-weight: 700; font-size: 13.5px;">• {v_word}</span>
+                        <span style="color: #94a3b8; font-size: 12px; margin-left: 6px;">{v_ipa}</span>:
+                        <span style="color: #cbd5e1; font-size: 12.5px; font-style: italic; margin-left: 4px;">{v_meaning}</span>
+                    </div>
+                    <button class="custom-speak-btn" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer;">
+                        🔊 Đọc
+                        <span style="display:none;" class="hidden-speak-text">{v_word}</span>
+                    </button>
+                </div>
+                """
+                st.markdown(btn_play_code, unsafe_allow_html=True)
+
+            st.markdown("##### 📝 2. Đoạn Văn Luyện Đọc Chuẩn (Reading Passage):")
+            passage_code = f"""
+            <div style="background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; margin-top: 4px;">
+                <div style="color: #e2e8f0; font-size: 13.5px; line-height: 1.6; font-style: italic;">"{unit_info['passage']}"</div>
+                <div style="text-align: right; margin-top: 8px;">
+                    <button class="custom-speak-btn" data-text="{unit_info['passage']}" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #ffffff; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                        🔊 Đọc cả đoạn văn
+                        <span style="display:none;" class="hidden-speak-text">{unit_info['passage']}</span>
+                    </button>
+                </div>
+            </div>
+            """
+            st.markdown(passage_code, unsafe_allow_html=True)
+
+        with col_right_speak:
+            st.markdown("##### 🎙️ 3. Phòng Thu Phản Xạ 1-1 Cùng Gia Sư AI:")
+            q_code = f"""
+            <div style="background: rgba(30, 41, 59, 0.95); border: 1.5px solid #38bdf8; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="color: #38bdf8; font-weight: 800; font-size: 13px;">🤖 CÂU HỎI PHẢN XẠ CỦA GIA SƯ AI:</div>
+                    <button class="custom-speak-btn" data-text="{unit_info['q_reflex']}" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                        🔊 Nghe
+                        <span style="display:none;" class="hidden-speak-text">{unit_info['q_reflex']}</span>
+                    </button>
+                </div>
+                <div style="color: #ffffff; font-size: 13.5px; font-weight: 600; margin-top: 6px; line-height: 1.5;">"{unit_info['q_reflex']}"</div>
+            </div>
+            """
+            st.markdown(q_code, unsafe_allow_html=True)
+
+            ielts_mic_code = f"""
+            <div style="background: #0f172a; border: 1.5px solid #334155; border-radius: 10px; padding: 12px 14px; font-family: system-ui, sans-serif;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                    <button id="btn_hold_eng" style="background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; border: 1.5px solid #34d399; padding: 9px 18px; border-radius: 8px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16,185,129,0.35); user-select: none; transition: all 0.2s ease;">
+                        <span id="eng_icon">🎙️</span> <span id="eng_lbl">ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)</span>
+                    </button>
+                    <span id="eng_status" style="color: #94a3b8; font-size: 11.5px; font-weight: 600;">(Đè chuột nói, nhả chuột để dừng)</span>
+                </div>
+                <div id="eng_box" style="min-height: 52px; background: #1e293b; border: 1px dashed #475569; border-radius: 8px; padding: 8px 12px; color: #34d399; font-size: 13.5px; font-weight: 600; line-height: 1.5;">
+                    Your spoken English will appear here in real-time...
+                </div>
+            </div>
+            <script>
+            (function() {{
+                let rec = null;
+                let isRecording = false;
+                const btn = document.getElementById('btn_hold_eng');
+                const lbl = document.getElementById('eng_lbl');
+                const icon = document.getElementById('eng_icon');
+                const stat = document.getElementById('eng_status');
+                const box = document.getElementById('eng_box');
+
+                function setNativeValue(element, value) {{
+                    try {{
+                        const valueSetter = Object.getOwnPropertyDescriptor(element, 'value').set;
+                        const prototype = Object.getPrototypeOf(element);
+                        const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value').set;
+                        if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {{
+                            prototypeValueSetter.call(element, value);
+                        }} else if (valueSetter) {{
+                            valueSetter.call(element, value);
+                        }} else {{
+                            element.value = value;
+                        }}
+                        element.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        element.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    }} catch(e) {{
+                        element.value = value;
+                    }}
+                }}
+
+                const targetWin = window.parent || window;
+                const SpeechClass = targetWin.SpeechRecognition || targetWin.webkitSpeechRecognition || window.SpeechRecognition || window.webkitSpeechRecognition;
+
+                if (SpeechClass) {{
+                    try {{
+                        rec = new SpeechClass();
+                        rec.continuous = true;
+                        rec.interimResults = true;
+                        rec.lang = 'en-US';
+
+                        rec.onstart = function() {{
+                            isRecording = true;
+                            btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                            btn.style.boxShadow = '0 0 18px rgba(239, 68, 68, 0.7)';
+                            btn.style.borderColor = '#f87171';
+                            lbl.innerText = 'ĐANG THU ÂM... NHẢ CHUỘT ĐỂ DỪNG';
+                            icon.innerText = '🔴';
+                            stat.innerText = '● Recording speech in en-US...';
+                            stat.style.color = '#ef4444';
+                        }};
+
+                        rec.onresult = function(e) {{
+                            let str = '';
+                            for (let i = e.resultIndex; i < e.results.length; ++i) {{
+                                str += e.results[i][0].transcript;
+                            }}
+                            if (str) {{
+                                box.innerText = str;
+                                try {{
+                                    const targetDoc = window.parent.document || document;
+                                    const textareas = targetDoc.querySelectorAll('textarea');
+                                    for (let ta of textareas) {{
+                                        const pText = (ta.placeholder || ta.getAttribute('aria-label') || '').toLowerCase();
+                                        if (pText.includes('english')) {{
+                                            setNativeValue(ta, str);
+                                            break;
+                                        }}
+                                    }}
+                                }} catch(err) {{ console.warn(err); }}
+                            }}
+                        }};
+
+                        rec.onerror = function(e) {{
+                            console.warn("Speech Rec Error:", e.error);
+                            stat.innerText = '⚠️ Lỗi Mic: ' + e.error;
+                            stat.style.color = '#f87171';
+                            isRecording = false;
+                        }};
+
+                        rec.onend = function() {{
+                            if (isRecording) stopRec();
+                        }};
+                    }} catch(err) {{
+                        console.warn("Speech init err:", err);
+                    }}
+                }} else {{
+                    stat.innerText = 'Web Speech Mic không hỗ trợ trình duyệt này';
+                }}
+
+                function startRec(e) {{
+                    if (e) e.preventDefault();
+                    if (!rec) return alert('Vui lòng sử dụng Google Chrome hoặc MS Edge để dùng Mic thu âm!');
+                    if (!isRecording) {{
+                        try {{ rec.start(); }} catch(err) {{ console.warn(err); }}
+                    }}
+                }}
+
+                function stopRec(e) {{
+                    if (e) e.preventDefault();
+                    if (rec && isRecording) {{
+                        try {{ rec.stop(); }} catch(err) {{}}
+                    }}
+                    isRecording = false;
+                    btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    btn.style.boxShadow = '0 4px 14px rgba(16,185,129,0.35)';
+                    btn.style.borderColor = '#34d399';
+                    lbl.innerText = 'ĐÈ ĐỂ NÓI TIẾNG ANH (en-US)';
+                    icon.innerText = '🎙️';
+                    if (!stat.innerText.includes('Lỗi')) {{
+                        stat.innerText = '✅ Đã ghi nhận bài nói thành công!';
+                        stat.style.color = '#34d399';
+                    }}
+                }}
+
+                btn.addEventListener('mousedown', startRec);
+                btn.addEventListener('mouseup', stopRec);
+                btn.addEventListener('mouseleave', stopRec);
+                btn.addEventListener('touchstart', startRec);
+                btn.addEventListener('touchend', stopRec);
+            }})();
+            </script>
+            """
+            components.html(ielts_mic_code, height=125)
+
+            student_speech = st.text_area(
+                "Nội dung bài nói của em (tự động nhận diện từ Mic):", 
+                key=f"eng_speech_input_{stage_id}",
+                placeholder="Your spoken English will be captured here...",
+                height=85
+            )
+
+            btn_score_ielts = st.button("📊 Chấm Điểm 4 Tiêu Chí IELTS & Nâng Cấp Band 8.0", key=f"btn_eval_ielts_{stage_id}", type="primary", use_container_width=True)
+
+            if btn_score_ielts and student_speech.strip():
+                with st.spinner("AI Giám khảo IELTS đang phân tích..."):
+                    try:
+                        rubric_prompt = f"""Bạn là Giám khảo Khảo thí IELTS Quốc tế kiêm Giáo viên Tiếng Anh THPT.
+Chủ đề bài học SGK: {sel_unit}
+Câu hỏi bối cảnh: '{unit_info['q_reflex']}'
+Đoạn văn đọc mẫu: '{unit_info['passage']}'
+Bài nói/phát âm thực tế của học sinh: '{student_speech}'
+
+YÊU CẦU ĐÁNH GIÁ:
+1. OVERALL BAND SCORE (Thang điểm 0 - 9.0)
+2. BẢNG ĐIỂM 4 TIÊU CHÍ CHUẨN QUỐC TẾ: Fluency, Lexical, Grammar, Pronunciation.
+3. SOI LỖI CỤ THỂ VÀ BẢN NÂNG CẤP BAND 8.0."""
+                        eval_ielts_res = call_gemini_with_fallback(rubric_prompt)
+                        st.success("🏆 BẢNG ĐÁNH GIÁ NĂNG LỰC NÓI TIẾNG ANH CHUẨN QUỐC TẾ:")
+                        st.markdown(eval_ielts_res)
+                    except Exception as e:
+                        st.error(f"Lỗi chấm điểm: {e}")
 
     def render_mermaid(code: str):
         safe_code = code.strip().replace('[[', '[').replace(']]', ']')
@@ -213,224 +789,459 @@ try:
         safe_code = re.sub(r'```$', '', safe_code, flags=re.MULTILINE).strip()
         safe_code = re.sub(r'^\s*graph\s+TD', 'graph LR', safe_code, flags=re.IGNORECASE)
         safe_code = re.sub(r'^\s*flowchart\s+TD', 'flowchart LR', safe_code, flags=re.IGNORECASE)
-        if not safe_code.startswith(("graph", "flowchart")): safe_code = "graph LR\n" + safe_code
+        if not safe_code.startswith(("graph", "flowchart")):
+            safe_code = "graph LR\n" + safe_code
+
         json_code_str = json.dumps(safe_code).replace("</", "<\\/")
+
         html_template = r"""
+        <!-- TÍCH HỢP KATEX VÀ D3.JS CHUẨN SƯ PHẠM QUỐC GIA -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
         <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
         <script src="https://d3js.org/d3.v7.min.js"></script>
+
         <div style="background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); border-radius: 14px; border: 1.5px solid #1e293b; padding: 12px; position: relative; font-family: system-ui, -apple-system, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 10px;">
-                <span style="color: #38bdf8; font-size: 13px; font-weight: 700;">🎯 SƠ ĐỒ TƯ DUY (HỖ TRỢ KATEX)</span>
+                <span style="color: #38bdf8; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;">🎯 SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (HỖ TRỢ CÔNG THỨC TOÁN KATEX • CLICK ĐỂ SỔ/THU)</span>
                 <div>
-                    <button onclick="expandAll()" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-right: 6px;">➕ Mở</button>
-                    <button onclick="collapseAll()" style="background: #1e293b; color: #f43f5e; border: 1px solid #f43f5e; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-right: 6px;">➖ Thu</button>
-                    <button onclick="resetZoom()" style="background: #1e293b; color: #34d399; border: 1px solid #34d399; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;">🎯 Giữa</button>
+                    <button onclick="expandAll()" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px;">➕ Mở tất cả</button>
+                    <button onclick="collapseAll()" style="background: #1e293b; color: #f43f5e; border: 1px solid #f43f5e; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px;">➖ Thu gọn</button>
+                    <button onclick="resetZoom()" style="background: #1e293b; color: #34d399; border: 1px solid #34d399; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 6px;">🎯 Căn giữa</button>
+                    <button onclick="downloadMindmapSVG()" style="background: #0ea5e9; color: #ffffff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">📥 Tải Sơ Đồ (SVG)</button>
                 </div>
             </div>
             <div id="mindmap-container" style="width: 100%; height: 550px; overflow: hidden; cursor: grab;"></div>
         </div>
+
         <script>
         const rawCode = ___JSON_CODE_PLACEHOLDER___;
+
         function renderLabelWithKaTeX(rawLabel) {
             if (!rawLabel) return "";
-            return rawLabel.trim().replace(/\$([^\$]+)\$/g, function(match, tex) {
-                try { if (window.katex) return window.katex.renderToString(tex, { throwOnError: false, displayMode: false }); } catch (e) {}
+            let text = rawLabel.trim();
+            text = text.replace(/\$([^\$]+)\$/g, function(match, tex) {
+                try {
+                    if (window.katex) {
+                        return window.katex.renderToString(tex, { throwOnError: false, displayMode: false });
+                    }
+                } catch (e) {
+                    console.warn("KaTeX error:", e);
+                }
                 return match;
             });
+            return text;
         }
+
         function parseNodePart(part) {
             if (!part) return null;
             part = part.trim().split(':::')[0].trim();
-            let firstDelim = -1; let openChar = null;
-            for (let i = 0; i < part.length; i++) { if (['(','[','{'].includes(part[i])) { firstDelim = i; openChar = part[i]; break; } }
-            if (firstDelim === -1) return { id: part, label: part };
+            
+            let firstDelim = -1;
+            let openChar = null;
+            for (let i = 0; i < part.length; i++) {
+                const ch = part[i];
+                if (ch === '(' || ch === '[' || ch === '{') {
+                    firstDelim = i;
+                    openChar = ch;
+                    break;
+                }
+            }
+
+            if (firstDelim === -1) {
+                return { id: part, label: part };
+            }
+
             const id = part.substring(0, firstDelim).trim();
             const rest = part.substring(firstDelim).trim();
             const closeChar = openChar === '(' ? ')' : (openChar === '[' ? ']' : '}');
             const lastClose = rest.lastIndexOf(closeChar);
+
             let label = lastClose !== -1 ? rest.substring(1, lastClose).trim() : rest.substring(1).trim();
-            if ((label.startsWith('"') && label.endsWith('"')) || (label.startsWith("'") && label.endsWith("'"))) label = label.substring(1, label.length - 1).trim();
+            if ((label.startsWith('"') && label.endsWith('"')) || (label.startsWith("'") && label.endsWith("'"))) {
+                label = label.substring(1, label.length - 1).trim();
+            }
             return { id: id || label, label: label || id };
         }
+
         function parseMermaidToTree(code) {
             if (!code) return null;
             let lines = code.split(/\r?\n/);
-            if (lines.length <= 1 && code.includes('\\n')) lines = code.split('\\n');
-            const nodeLabels = {}; const childrenMap = {}; const parentMap = {};
+            if (lines.length <= 1 && code.includes('\\n')) {
+                lines = code.split('\\n');
+            }
+
+            const nodeLabels = {};
+            const childrenMap = {};
+            const parentMap = {};
+
             function registerNode(node) {
                 if (!node || !node.id) return;
-                if (node.label && node.label !== node.id) nodeLabels[node.id] = node.label;
-                else if (!nodeLabels[node.id]) nodeLabels[node.id] = node.label || node.id;
+                if (node.label && node.label !== node.id) {
+                    nodeLabels[node.id] = node.label;
+                } else if (!nodeLabels[node.id]) {
+                    nodeLabels[node.id] = node.label || node.id;
+                }
             }
+
             lines.forEach(line => {
                 line = line.trim();
-                if (!line || line.match(/^(graph|flowchart|classDef|style|subgraph|end)/)) return;
+                if (!line || line.startsWith('graph') || line.startsWith('flowchart') || line.startsWith('classDef') || line.startsWith('style') || line.startsWith('subgraph') || line === 'end') {
+                    return;
+                }
                 const arrowMatch = line.match(/^(.*?)\s*(?:-->|==>|-\.->|---|->)(?:\|.*?\|)?\s*(.*)$/);
                 if (arrowMatch) {
-                    const src = parseNodePart(arrowMatch[1]); const tgt = parseNodePart(arrowMatch[2]);
+                    const src = parseNodePart(arrowMatch[1]);
+                    const tgt = parseNodePart(arrowMatch[2]);
                     if (src && tgt) {
-                        registerNode(src); registerNode(tgt);
+                        registerNode(src);
+                        registerNode(tgt);
+
                         if (!childrenMap[src.id]) childrenMap[src.id] = [];
                         if (!childrenMap[src.id].includes(tgt.id)) childrenMap[src.id].push(tgt.id);
                         parentMap[tgt.id] = src.id;
                     }
-                } else { const node = parseNodePart(line); if (node && node.id) registerNode(node); }
+                } else {
+                    const node = parseNodePart(line);
+                    if (node && node.id) {
+                        registerNode(node);
+                    }
+                }
             });
+
             const allIds = Object.keys(nodeLabels);
             if (allIds.length === 0) return null;
             let rootId = allIds.find(id => !parentMap[id]) || allIds[0];
+
             function build(id, depth) {
                 const item = { id: id, name: nodeLabels[id] || id, depth: depth };
                 const childIds = childrenMap[id] || [];
-                if (childIds.length > 0) item.children = childIds.map(cId => build(cId, depth + 1));
+                if (childIds.length > 0) {
+                    item.children = childIds.map(cId => build(cId, depth + 1));
+                }
                 return item;
             }
             return build(rootId, 0);
         }
-        function generateAutoHealerTree() {
-            return { id: "Root", name: "🎯 BÀI HỌC", depth: 0, children: [
-                { id: "N1", name: "1. Khái niệm", depth: 1, children: [{ id: "N1_1", name: "Định nghĩa chuẩn", depth: 2 }] },
-                { id: "N2", name: "2. Công thức", depth: 1, children: [{ id: "N2_1", name: "Công thức", depth: 2 }] }
-            ]};
+
+        function generateAutoHealerTree(code) {
+            let topicName = "NỘI DUNG TRỌNG TÂM BÀI HỌC";
+            const m = (code || '').match(/\[["']?(.*?)["']?\]/);
+            if (m && m[1] && m[1].length < 60) {
+                topicName = m[1].replace(/["']/g, '').trim();
+            }
+            return {
+                id: "Root",
+                name: "🎯 " + topicName,
+                depth: 0,
+                children: [
+                    {
+                        id: "N1",
+                        name: "📖 1. Định nghĩa & Khái niệm cốt lõi",
+                        depth: 1,
+                        children: [
+                            { id: "N1_1", name: "Định nghĩa chuẩn SGK Kết Nối Tri Thức", depth: 2 },
+                            { id: "N1_2", name: "Điều kiện xác định & Phạm vi áp dụng", depth: 2 }
+                        ]
+                    },
+                    {
+                        id: "N2",
+                        name: "⚡ 2. Công thức & Quy tắc trọng tâm",
+                        depth: 1,
+                        children: [
+                            { id: "N2_1", name: "Công thức cơ bản nền tảng", depth: 2 },
+                            { id: "N2_2", name: "Tính chất biến đổi & Mở rộng", depth: 2 }
+                        ]
+                    },
+                    {
+                        id: "N3",
+                        name: "🔍 3. Phương pháp giải & Dạng bài tập",
+                        depth: 1,
+                        children: [
+                            { id: "N3_1", name: "Dạng 1: Nhận biết & Thông hiểu", depth: 2 },
+                            { id: "N3_2", name: "Dạng 2: Vận dụng liên môn & Thực tiễn", depth: 2 }
+                        ]
+                    }
+                ]
+            };
         }
+
         let treeData = parseMermaidToTree(rawCode);
-        if (!treeData || !treeData.children || treeData.children.length === 0) treeData = generateAutoHealerTree();
-        
+        if (!treeData || !treeData.children || treeData.children.length === 0) {
+            console.warn("Kích hoạt Auto-Healer Tree Generator cho sơ đồ tư duy!");
+            treeData = generateAutoHealerTree(rawCode);
+        }
+        const container = document.getElementById("mindmap-container");
         const height = 550;
-        const svg = d3.select("#mindmap-container").append("svg").attr("width", "100%").attr("height", height).style("user-select", "text");
-        const g = svg.append("g");
-        const zoom = d3.zoom().scaleExtent([0.25, 3.5]).on("zoom", (e) => g.attr("transform", e.transform));
-        svg.call(zoom);
 
-        const treeLayout = d3.tree().nodeSize([78, 240]);
-        const root = d3.hierarchy(treeData);
-        root.x0 = height / 2; root.y0 = 40;
-        const palette = ["#818cf8", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#38bdf8"];
+        {
+            const svg = d3.select("#mindmap-container").append("svg")
+                .attr("width", "100%")
+                .attr("height", height)
+                .attr("id", "svg-mindmap-element")
+                .style("user-select", "text");
 
-        if (root.children) {
-            root.children.forEach(c => {
-                if (c.children) { c.children.forEach(sub => { if (sub.children) { sub._children = sub.children; sub.children = null; } }); }
-            });
-        }
-        let measureBox = document.getElementById("mm-box");
-        if (!measureBox) {
-            measureBox = document.createElement("div"); measureBox.id = "mm-box";
-            measureBox.style.cssText = "position:absolute; visibility:hidden; top:-999px; left:-999px; white-space:nowrap; font-family:sans-serif;";
-            document.body.appendChild(measureBox);
-        }
-        function getNodeW(text, d) {
-            if (!text) return 90;
-            measureBox.style.fontSize = d === 0 ? "13.5px" : "12.5px";
-            measureBox.style.fontWeight = d === 0 ? "800" : "600";
-            measureBox.innerHTML = renderLabelWithKaTeX(text);
-            return Math.max(90, Math.ceil(measureBox.getBoundingClientRect().width) + 48);
-        }
+            const g = svg.append("g");
 
-        let i = 0;
-        function update(source) {
-            const treeInfo = treeLayout(root);
-            const nodes = treeInfo.descendants();
-            const links = treeInfo.links();
-            const maxWByDepth = {};
-            nodes.forEach(d => {
-                d.boxWidth = getNodeW(d.data.name, d.depth); d.boxHeight = 42;
-                if (!maxWByDepth[d.depth] || d.boxWidth > maxWByDepth[d.depth]) maxWByDepth[d.depth] = d.boxWidth;
-            });
-            const depthX = [35];
-            for (let dep = 1; dep <= 12; dep++) depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 120) + 55;
-            nodes.forEach(d => { d.y = depthX[d.depth]; });
+            const zoom = d3.zoom()
+                .scaleExtent([0.25, 3.5])
+                .on("zoom", (e) => g.attr("transform", e.transform));
+            svg.call(zoom);
 
-            const node = g.selectAll("g.node").data(nodes, d => d.id || (d.id = ++i));
-            const nodeEnter = node.enter().append("g").attr("class", "node").attr("transform", d => `translate(${source.y0},${source.x0})`).style("cursor", "pointer")
-                .on("click", (event, d) => {
-                    if (d.children) { d._children = d.children; d.children = null; }
-                    else if (d._children) { d.children = d._children; d._children = null; }
-                    update(d);
+            const treeLayout = d3.tree().nodeSize([78, 240]);
+            const root = d3.hierarchy(treeData);
+            root.x0 = height / 2;
+            root.y0 = 40;
+
+            const palette = ["#818cf8", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#38bdf8"];
+
+            if (root.children) {
+                root.children.forEach(c => {
+                    if (c.children) {
+                        c.children.forEach(sub => {
+                            if (sub.children) {
+                                sub._children = sub.children;
+                                sub.children = null;
+                            }
+                        });
+                    }
+                });
+            }
+
+            let measureBox = document.getElementById("mindmap-measure-box");
+            if (!measureBox) {
+                measureBox = document.createElement("div");
+                measureBox.id = "mindmap-measure-box";
+                measureBox.style.cssText = "position:absolute; visibility:hidden; top:-9999px; left:-9999px; white-space:nowrap; font-family:system-ui,-apple-system,sans-serif;";
+                document.body.appendChild(measureBox);
+            }
+
+            function getPreciseNodeWidth(text, depth) {
+                if (!text) return 90;
+                measureBox.style.fontSize = depth === 0 ? "13.5px" : "12.5px";
+                measureBox.style.fontWeight = depth === 0 ? "800" : "600";
+                measureBox.innerHTML = renderLabelWithKaTeX(text);
+                const rect = measureBox.getBoundingClientRect();
+                const measuredW = Math.ceil(rect.width || measureBox.offsetWidth || (text.length * 8));
+                return Math.max(90, measuredW + 48);
+            }
+
+            let i = 0;
+            function update(source) {
+                const treeInfo = treeLayout(root);
+                const nodes = treeInfo.descendants();
+                const links = treeInfo.links();
+
+                const maxWByDepth = {};
+                nodes.forEach(d => {
+                    d.boxWidth = getPreciseNodeWidth(d.data.name, d.depth);
+                    d.boxHeight = 42;
+                    if (!maxWByDepth[d.depth] || d.boxWidth > maxWByDepth[d.depth]) {
+                        maxWByDepth[d.depth] = d.boxWidth;
+                    }
                 });
 
-            nodeEnter.append("rect").attr("rx", 9).attr("ry", 9).attr("x", 0).attr("y", -21).attr("height", d => d.boxHeight).attr("width", d => d.boxWidth)
-                .style("fill", "#0f172a").style("stroke", d => palette[d.depth % palette.length]).style("stroke-width", d => d.depth === 0 ? "2.5px" : "1.8px");
-            nodeEnter.append("circle").attr("cx", 14).attr("cy", 0).attr("r", 5.5).style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569")).style("stroke", d => palette[d.depth % palette.length]).style("stroke-width", "2px");
+                const depthX = [35];
+                for (let dep = 1; dep <= 12; dep++) {
+                    depthX[dep] = depthX[dep - 1] + (maxWByDepth[dep - 1] || 120) + 55;
+                }
 
-            const fo = nodeEnter.append("foreignObject").attr("x", 26).attr("y", -21).attr("width", d => d.boxWidth - 28).attr("height", d => d.boxHeight).style("overflow", "visible").style("pointer-events", "auto");
-            fo.append("xhtml:div").style("color", "#ffffff").style("font-size", d => d.depth === 0 ? "13.5px" : "12.5px").style("font-weight", d => d.depth === 0 ? "800" : "600").style("line-height", "42px").style("white-space", "nowrap").html(d => renderLabelWithKaTeX(d.data.name));
+                nodes.forEach(d => { 
+                    d.y = depthX[d.depth]; 
+                });
 
-            const nodeUpdate = node.merge(nodeEnter).transition().duration(350).attr("transform", d => `translate(${d.y},${d.x})`);
-            nodeUpdate.select("rect").attr("width", d => d.boxWidth);
-            nodeUpdate.select("foreignObject").attr("width", d => d.boxWidth - 28);
-            nodeUpdate.select("circle").style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569"));
+                const node = g.selectAll("g.node").data(nodes, d => d.id || (d.id = ++i));
 
-            const nodeExit = node.exit().transition().duration(350).attr("transform", d => `translate(${source.y},${source.x})`).remove();
+                function speakMindmapText(rawName) {
+                    if (window.parent && window.parent.speakEnglishText) {
+                        window.parent.speakEnglishText(rawName);
+                    } else {
+                        console.warn("Mindmap TTS: window.parent.speakEnglishText not available.");
+                    }
+                }
 
-            const link = g.selectAll("path.link").data(links, d => d.target.id);
-            const linkPath = d => {
-                const startX = d.source.y + d.source.boxWidth; const startY = d.source.x;
-                const endX = d.target.y; const endY = d.target.x;
-                return `M ${startX} ${startY} C ${(startX + endX) / 2} ${startY}, ${(startX + endX) / 2} ${endY}, ${endX} ${endY}`;
+                const nodeEnter = node.enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", d => `translate(${source.y0},${source.x0})`)
+                    .style("cursor", "pointer")
+                    .on("click", (event, d) => {
+                        speakMindmapText(d.data.name);
+                        if (d.children) {
+                            d._children = d.children;
+                            d.children = null;
+                        } else if (d._children) {
+                            d.children = d._children;
+                            d._children = null;
+                        }
+                        update(d);
+                    });
+
+                nodeEnter.append("rect")
+                    .attr("rx", 9).attr("ry", 9)
+                    .attr("x", 0).attr("y", -21)
+                    .attr("height", d => d.boxHeight)
+                    .attr("width", d => d.boxWidth)
+                    .style("fill", "#0f172a")
+                    .style("stroke", d => palette[d.depth % palette.length])
+                    .style("stroke-width", d => d.depth === 0 ? "2.5px" : "1.8px")
+                    .style("filter", "drop-shadow(0 4px 10px rgba(0,0,0,0.65))");
+
+                nodeEnter.append("circle")
+                    .attr("cx", 14).attr("cy", 0).attr("r", 5.5)
+                    .style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569"))
+                    .style("stroke", d => palette[d.depth % palette.length])
+                    .style("stroke-width", "2px");
+
+                const fo = nodeEnter.append("foreignObject")
+                    .attr("x", 26)
+                    .attr("y", -21)
+                    .attr("width", d => d.boxWidth - 28)
+                    .attr("height", d => d.boxHeight)
+                    .style("overflow", "visible")
+                    .style("pointer-events", "auto");
+
+                fo.append("xhtml:div")
+                    .style("color", "#ffffff")
+                    .style("font-size", d => d.depth === 0 ? "13.5px" : "12.5px")
+                    .style("font-weight", d => d.depth === 0 ? "800" : "600")
+                    .style("line-height", "42px")
+                    .style("white-space", "nowrap")
+                    .style("overflow", "visible")
+                    .style("user-select", "text")
+                    .style("cursor", "pointer")
+                    .on("dblclick", (event, d) => {
+                        event.stopPropagation();
+                        speakMindmapText(d.data.name);
+                    })
+                    .html(d => renderLabelWithKaTeX(d.data.name));
+
+                const nodeUpdate = node.merge(nodeEnter).transition().duration(350)
+                    .attr("transform", d => `translate(${d.y},${d.x})`);
+
+                nodeUpdate.select("rect").attr("width", d => d.boxWidth);
+                nodeUpdate.select("foreignObject").attr("width", d => d.boxWidth - 28);
+                nodeUpdate.select("circle")
+                    .style("fill", d => d._children ? palette[d.depth % palette.length] : (d.children ? "#0f172a" : "#475569"));
+
+                const nodeExit = node.exit().transition().duration(350)
+                    .attr("transform", d => `translate(${source.y},${source.x})`)
+                    .remove();
+
+                const link = g.selectAll("path.link").data(links, d => d.target.id);
+
+                const linkPath = d => {
+                    const startX = d.source.y + d.source.boxWidth;
+                    const startY = d.source.x;
+                    const endX = d.target.y;
+                    const endY = d.target.x;
+                    return `M ${startX} ${startY} C ${(startX + endX) / 2} ${startY}, ${(startX + endX) / 2} ${endY}, ${endX} ${endY}`;
+                };
+
+                const linkEnter = link.enter().insert("path", "g")
+                    .attr("class", "link")
+                    .attr("d", d => {
+                        const startX = source.y0 + (source.boxWidth || 150);
+                        return `M ${startX} ${source.x0} C ${startX} ${source.x0}, ${startX} ${source.x0}`;
+                    })
+                    .style("fill", "none")
+                    .style("stroke", d => palette[d.target.depth % palette.length])
+                    .style("stroke-opacity", 0.75)
+                    .style("stroke-width", "2px");
+
+                link.merge(linkEnter).transition().duration(350)
+                    .attr("d", linkPath);
+
+                link.exit().transition().duration(350)
+                    .attr("d", d => {
+                        const startX = source.y + (source.boxWidth || 150);
+                        return `M ${startX} ${source.x} C ${startX} ${source.x}, ${startX} ${source.x}`;
+                    })
+                    .remove();
+
+                nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+            }
+
+            update(root);
+
+            svg.call(zoom.transform, d3.zoomIdentity.translate(50, height / 2.3).scale(0.85));
+
+            window.expandAll = function() {
+                function expand(d) {
+                    if (d._children) { d.children = d._children; d._children = null; }
+                    if (d.children) d.children.forEach(expand);
+                }
+                expand(root);
+                update(root);
             };
-            const linkEnter = link.enter().insert("path", "g").attr("class", "link")
-                .attr("d", d => { const startX = source.y0 + (source.boxWidth || 150); return `M ${startX} ${source.x0} C ${startX} ${source.x0}, ${startX} ${source.x0}`; })
-                .style("fill", "none").style("stroke", d => palette[d.target.depth % palette.length]).style("stroke-opacity", 0.75).style("stroke-width", "2px");
 
-            link.merge(linkEnter).transition().duration(350).attr("d", linkPath);
-            link.exit().transition().duration(350).attr("d", d => { const startX = source.y + (source.boxWidth || 150); return `M ${startX} ${source.x} C ${startX} ${source.x}, ${startX} ${source.x}`; }).remove();
+            window.collapseAll = function() {
+                if (root.children) {
+                    root.children.forEach(c => {
+                        function collapse(d) {
+                            if (d.children) { d._children = d.children; d.children = null; }
+                            if (d._children) d._children.forEach(collapse);
+                        }
+                        collapse(c);
+                    });
+                }
+                update(root);
+            };
 
-            nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+            window.resetZoom = function() {
+                svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(50, height / 2.3).scale(0.85));
+            };
+
+            window.downloadMindmapSVG = function() {
+                const svgEl = document.getElementById("svg-mindmap-element");
+                if (!svgEl) return;
+                const serializer = new XMLSerializer();
+                let source = serializer.serializeToString(svgEl);
+                if(!source.match(/^<svg/)){
+                    source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+                }
+                const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+                const downloadLink = document.createElement("a");
+                downloadLink.href = url;
+                downloadLink.download = "SoDoTuDuy_KNTT.svg";
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            };
         }
-        update(root);
-        svg.call(zoom.transform, d3.zoomIdentity.translate(50, height / 2.3).scale(0.85));
-
-        window.expandAll = function() { function expand(d) { if (d._children) { d.children = d._children; d._children = null; } if (d.children) d.children.forEach(expand); } expand(root); update(root); };
-        window.collapseAll = function() { if (root.children) { root.children.forEach(c => { function collapse(d) { if (d.children) { d._children = d.children; d.children = null; } if (d._children) d._children.forEach(collapse); } collapse(c); }); } update(root); };
-        window.resetZoom = function() { svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(50, height / 2.3).scale(0.85)); };
         </script>
         """
+
         final_html = html_template.replace("___JSON_CODE_PLACEHOLDER___", json_code_str)
-        if hasattr(st, "iframe"): st.iframe(final_html, height=580)
-        else: components.html(final_html, height=580, scrolling=False)
+        if hasattr(st, "iframe"):
+            st.iframe(final_html, height=580)
+        else:
+            components.html(final_html, height=580, scrolling=False)
 
-    def setup_pedagogical_oxy(fig, x_range, y_range):
-        x_min, x_max = x_range
-        y_min, y_max = y_range
-        fig.add_trace(go.Scatter(x=[x_min, x_max], y=[0, 0], mode='lines', line=dict(color='#cbd5e1', width=1.5), hoverinfo='skip'))
-        fig.add_trace(go.Scatter(x=[0, 0], y=[y_min, y_max], mode='lines', line=dict(color='#cbd5e1', width=1.5), hoverinfo='skip'))
-        fig.add_annotation(x=x_max, y=0, ax=-18, ay=0, xref='x', yref='y', axref='pixel', ayref='pixel', showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2, arrowcolor='#cbd5e1')
-        fig.add_annotation(x=x_max - 0.1, y=-0.5, text='<b>x</b>', showarrow=False, font=dict(color='#f8fafc', size=15, family='Times New Roman'))
-        fig.add_annotation(x=0, y=y_max, ax=0, ay=18, xref='x', yref='y', axref='pixel', ayref='pixel', showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=2, arrowcolor='#cbd5e1')
-        fig.add_annotation(x=-0.4, y=y_max - 0.1, text='<b>y</b>', showarrow=False, font=dict(color='#f8fafc', size=15, family='Times New Roman'))
-        fig.add_annotation(x=-0.35, y=-0.45, text='<i>O</i>', showarrow=False, font=dict(color='#94a3b8', size=15, family='Times New Roman'))
-        fig.update_layout(template="plotly_dark", xaxis=dict(range=[x_min, x_max], zeroline=False, gridcolor="#1e293b", dtick=1), yaxis=dict(range=[y_min, y_max], zeroline=False, gridcolor="#1e293b", dtick=1), margin=dict(l=15, r=15, t=30, b=15), showlegend=False)
-
-    _SAFE_NAMES = {"x", "np", "math", "pi", "e", "abs", "min", "max", "pow", "round", "float", "int", "go"}
-    _SAFE_CALL_ROOTS = {"np", "math", "go"}
-    def _check_math_ast(node):
-        for n in ast.walk(node):
+    def safe_eval_func(expr, x_val):
+        tree = ast.parse(expr.strip(), mode="eval")
+        _SAFE_NAMES = {"x", "np", "math", "pi", "e", "abs", "min", "max", "pow", "round", "float", "int", "go"}
+        _SAFE_CALL_ROOTS = {"np", "math", "go"}
+        for n in ast.walk(tree):
             if isinstance(n, ast.Name) and n.id not in _SAFE_NAMES: raise ValueError(f"Tên không được phép: {n.id}")
             if isinstance(n, ast.Attribute):
                 if n.attr.startswith("_"): raise ValueError("Thuộc tính không được phép")
                 root = n
                 while isinstance(root, ast.Attribute): root = root.value
                 if not (isinstance(root, ast.Name) and root.id in _SAFE_CALL_ROOTS): raise ValueError("Chỉ cho phép np.*, math.*, go.*")
-
-    def safe_eval_func(expr, x_val):
-        tree = ast.parse(expr.strip(), mode="eval")
-        _check_math_ast(tree)
         env = {"__builtins__": {}, "x": x_val, "np": np, "math": math, "pi": math.pi, "e": math.e, "abs": abs, "min": min, "max": max, "pow": pow, "round": round, "float": float, "int": int}
         return eval(compile(tree, "<ham_so>", "eval"), env)
-
-    _BLOCKED_NAMES = {"exec", "eval", "compile", "open", "input", "globals", "locals", "vars", "getattr", "setattr", "delattr", "__import__", "os", "sys", "subprocess", "st", "builtins", "importlib", "socket", "requests", "shutil", "pathlib"}
-    _SAFE_BUILTINS = {k: __builtins__[k] if isinstance(__builtins__, dict) else getattr(__builtins__, k) for k in ["range", "len", "min", "max", "abs", "sum", "round", "float", "int", "list", "dict", "tuple", "zip", "enumerate", "str", "pow", "sorted", "bool", "map", "any", "all", "set", "reversed", "isinstance", "True", "False", "None"]}
 
     def render_dynamic_python_lab(python_code: str):
         try:
             clean_code = re.sub(r'st\.plotly_chart\(.*?\)', '', python_code)
             clean_code = re.sub(r'(?m)^\s*(?:import|from)\s+.*$', '', clean_code)
             tree = ast.parse(clean_code)
+            _BLOCKED_NAMES = {"exec", "eval", "compile", "open", "input", "globals", "locals", "vars", "getattr", "setattr", "delattr", "__import__", "os", "sys", "subprocess", "st", "builtins", "importlib", "socket", "requests", "shutil", "pathlib"}
             for n in ast.walk(tree):
                 if isinstance(n, ast.Name) and (n.id in _BLOCKED_NAMES or n.id.startswith("__")): raise ValueError(f"Mã mô phỏng dùng tên bị cấm: {n.id}")
                 if isinstance(n, ast.Attribute) and n.attr.startswith("_"): raise ValueError("Mã mô phỏng dùng thuộc tính bị cấm")
                 if isinstance(n, (ast.Import, ast.ImportFrom)): raise ValueError("Không cho phép import trong mã mô phỏng")
+            
+            _SAFE_BUILTINS = {k: __builtins__[k] if isinstance(__builtins__, dict) else getattr(__builtins__, k) for k in ["range", "len", "min", "max", "abs", "sum", "round", "float", "int", "list", "dict", "tuple", "zip", "enumerate", "str", "pow", "sorted", "bool", "map", "any", "all", "set", "reversed", "isinstance", "True", "False", "None"]}
             local_env = {"__builtins__": _SAFE_BUILTINS, "go": go, "np": np, "math": math, "setup_pedagogical_oxy": setup_pedagogical_oxy}
             exec(compile(tree, "<mo_phong>", "exec"), local_env)
             if "fig" in local_env and isinstance(local_env["fig"], go.Figure):
@@ -664,15 +1475,6 @@ try:
                 fig.add_trace(go.Scatter3d(x=[mx, mx], y=[my, my], z=[0, mz], mode='lines', line=dict(color='#f59e0b', width=3, dash='dash'), hoverinfo='skip'))
                 fig.update_layout(title="Không gian Oxyz", template="plotly_dark", scene=dict(xaxis=dict(range=[-5, 5], backgroundcolor="#0f172a"), yaxis=dict(range=[-5, 5], backgroundcolor="#0f172a"), zaxis=dict(range=[-5, 5], backgroundcolor="#0f172a"), aspectmode='cube'), height=500, margin=dict(l=10, r=10, t=30, b=10))
                 st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("💡 Đã tiếp nhận yêu cầu. Kéo thanh trượt hoặc nhập tham số để mô phỏng tương tác!")
-
-    # ==============================================================================
-    # 3. GIAO DIỆN CHÍNH (TABS)
-    # ==============================================================================
-    st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - HỆ SINH THÁI LỚP HỌC ĐẢO NGƯỢC</div><div class="sub-title">Trường THPT Tân Hiệp & Trung tâm Thiện Nhân • Đồng hành từ Lớp 6 đến Lớp 12</div><div style="margin-top: 8px;"><span class="badge-tag">Bộ sách: Kết Nối Tri Thức Với Cuộc Sống</span><span class="badge-tag" style="border-color: #34d399; color: #34d399; margin-left: 8px;">Chuẩn CT GDPT 2018 & Quy chế 2026</span></div></div>', unsafe_allow_html=True)
-
-    tab1, tab2, tab3, tab4 = st.tabs(["💡 Trạm 1: Học Tập & Phòng Lab", "✍️ Trạm 2: Gia Sư Socratic & Nộp Bài", "📝 Trạm 3: Khảo Thí Độc Lập", "📊 Trạm 4: Dữ Liệu KHKT & Tự Động Vá Lỗi"])
 
     # ------------------------------------------------------------------------------
     # TRẠM 1: LÝ THUYẾT & PHÒNG LAB 
@@ -684,11 +1486,11 @@ try:
         
         if st.button("🚀 Soạn bài học chuẩn GDPT 2018", use_container_width=True) and topic_input.strip():
             st.session_state.tram1_count += 1
-            with st.spinner("Đang biên soạn chuẩn ngữ liệu SGK KNTT và cấu trúc Socratic..."):
+            with st.spinner("Đang biên soạn chuẩn ngữ liệu SGK KNTT..."):
                 study_prompt = f"""[HỆ THỐNG BIÊN SOẠN BÀI HỌC CHUẨN QUỐC GIA - CT GDPT 2018 & QUY CHẾ THI 2026]
 Môn học: {subject} | Khối lớp: {grade_num}. Chủ đề bài học: '{topic_input}'.
 YÊU CẦU BẮT BUỘC:
-1. BÁM SÁT 100% NGỮ LIỆU KNTT. TOÁN HỌC: CẤM DÙNG HÀM BẬC 4 TRÙNG PHƯƠNG. Khảo sát Lớp 12 chỉ dùng Bậc 3, Phân thức 1/1, Phân thức 2/1.
+1. BÁM SÁT 100% NGỮ LIỆU KNTT. TOÁN HỌC: CẤM DÙNG HÀM BẬC 4 TRÙNG PHƯƠNG.
 2. TRẮC NGHIỆM SOCRATIC: Sinh chính xác 3 câu trắc nghiệm (A, B, C, D). Kèm đáp án và giải thích gợi mở.
 3. TỰ LUẬN: Sinh 2 bài tập vận dụng kèm hướng dẫn POLYA 4 bước (Không giải chi tiết).
 TIÊU ĐỀ BẮT BUỘC:
@@ -750,15 +1552,18 @@ TIÊU ĐỀ BẮT BUỘC:
         
         lab_command = st.text_input("Lệnh mô phỏng:", placeholder="Ví dụ Toán: Vẽ hình đa diện 3D, khối chóp, sơ đồ tư duy...", label_visibility="collapsed")
         
-        if st.button("✨ Khởi chạy Phòng Lab", use_container_width=True) and lab_command.strip():
+        if st.button("✨ Khởi chạy Phòng Lab", key=f"btn_lab_{st.session_state.active_context_key}", use_container_width=True) and lab_command.strip():
             st.session_state.tram1_count += 1
             with st.spinner("AI đang phân tích ngữ cảnh liên môn và dựng mô hình..."):
                 context_text = st.session_state.current_lesson if st.session_state.get("current_lesson") else "Không có ngữ cảnh bài học trước đó."
                 lab_prompt = f"""[HỆ TRI THỨC SƯ PHẠM QUỐC GIA - CHUẨN CT GDPT 2018 & QUY CHẾ THI 2026]
 Môn học: {subject} | Khối lớp: {grade_num}. 
+NGỮ CẢNH BÀI HỌC HIỆN TẠI:
+{context_text}
+---
 Yêu cầu của học sinh: "{lab_command}"
-NGỮ CẢNH: {context_text}
 NHIỆM VỤ: Xuất DUY NHẤT 1 khối JSON hợp lệ phân loại mô hình trực quan.
+QUY TẮC PHÂN LOẠI:
 1. DIỆN TÍCH HÌNH PHẲNG: {{"type": "area", "func": "x**2 - 3*x + 2", "a": 0.0, "b": 3.0}}
 2. KHỐI TRÒN XOAY 3D: {{"type": "revolve_ox", "func": "2*x + 1", "a": 2.0, "b": 5.0}}
 3. HÀM BẬC 3: {{"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}}
@@ -1010,7 +1815,7 @@ XUẤT DUY NHẤT 1 OBJECT JSON:
 
             # XUẤT LATEX
             st.markdown("---")
-            st.markdown("### 📄 Xuất Bản Đề Thi LaTeX Cho Overleaf (Chuẩn 100% Bộ GD&ĐT 2026)")
+            st.markdown("### 📄 Xuất Bản Đề Thi LaTeX Cho Overleaf")
             latex_mode = st.radio("Định dạng xuất:", ["Chỉ xuất Đề thi in ấn", "Xuất Đề thi kèm Bảng đáp án"], horizontal=True)
 
             def sanitize_latex(txt):
@@ -1055,7 +1860,7 @@ XUẤT DUY NHẤT 1 OBJECT JSON:
     \begin{center}
         \textbf{\small KỲ THI KHẢO SÁT CHẤT LƯỢNG NĂM HỌC """ + ay + r"""} \\[0.05cm]
         Môn thi: \textbf{""" + subject.upper() + r"""} \\[0.05cm]
-        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút, không kể thời gian phát đề} \\[0.05cm]
+        \textit{Thời gian làm bài: """ + str(ex_time) + r""" phút} \\[0.05cm]
         \rule{7.5cm}{0.5pt}
     \end{center}
 \end{minipage}
