@@ -67,7 +67,7 @@ try:
     if "student_progress_history" not in st.session_state: st.session_state.student_progress_history = []
     if "active_context_key" not in st.session_state: st.session_state.active_context_key = None
 
-    APP_URL = get_secret("APP_URL", "https://gsaithptth-khkt2026.streamlit.app")
+    APP_URL = get_secret("APP_URL", "https://gsaithptth-khkt2026.streamlit.app/")
 
     # ==============================================================================
     # TÂN TRANG GIAO DIỆN (UI/UX NÂNG CẤP DÀNH CHO KHKT)
@@ -617,6 +617,7 @@ NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CT GDPT 2018:
         };
         </script>
         """
+        final_html = html_template.replace("___JSON_CODE_PLACEHOLDER___", json_code_str)
         if hasattr(st, "iframe"): st.iframe(final_html, height=580)
         else: components.html(final_html, height=580, scrolling=False)
 
@@ -947,182 +948,6 @@ NGUYÊN TẮC SƯ PHẠM BẮT BUỘC THEO CT GDPT 2018:
                 })
         return questions
 
-    # ==============================================================================
-    # 7. TIÊU ĐỀ TRANG VÀ BANNER CHÍNH
-    # ==============================================================================
-    st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - HỆ SINH THÁI LỚP HỌC ĐẢO NGƯỢC</div><div class="sub-title">Trường THPT Tân Hiệp & Trung tâm Thiện Nhân • Đồng hành từ Lớp 6 đến Lớp 12</div><div style="margin-top: 8px;"><span class="badge-tag">Bộ sách: Kết Nối Tri Thức Với Cuộc Sống</span><span class="badge-tag" style="border-color: #34d399; color: #34d399; margin-left: 8px;">Chuẩn CT GDPT 2018 & Quy chế 2026</span></div></div>', unsafe_allow_html=True)
-
-    # ------------------------------------------------------------------------------
-    # TRẠM 1: LÝ THUYẾT & PHÒNG LAB 
-    # ------------------------------------------------------------------------------
-    tab1, tab2, tab3, tab4 = st.tabs(["💡 Trạm 1: Học Tập & Phòng Lab", "✍️ Trạm 2: Gia Sư Socratic & Nộp Bài", "📝 Trạm 3: Khảo Thí Độc Lập", "📊 Trạm 4: Dữ Liệu KHKT & Tự Động Vá Lỗi"])
-
-    with tab1:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader(f"📖 Tự học & Chiếm lĩnh kiến thức môn {subject} - Lớp {grade_num}")
-        topic_input = st.text_input("📝 Nhập bài học cần chiếm lĩnh kiến thức:", placeholder="Ví dụ: Khảo sát hàm số, Hình chóp, Nhị thức Newton...")
-        
-        if st.button("🚀 Soạn bài học chuẩn GDPT 2018") and topic_input.strip():
-            st.session_state.tram1_count += 1
-            with st.spinner("Đang biên soạn chuẩn ngữ liệu SGK KNTT và cấu trúc Socratic..."):
-                study_prompt = f"""[HỆ THỐNG BIÊN SOẠN BÀI HỌC CHUẨN QUỐC GIA - CT GDPT 2018 & QUY CHẾ THI 2026]
-Môn học: {subject} | Khối lớp: {grade_num}. Chủ đề bài học: '{topic_input}'.
-YÊU CẦU BẮT BUỘC:
-1. BÁM SÁT 100% NGỮ LIỆU KNTT. TOÁN HỌC: CẤM DÙNG HÀM BẬC 4 TRÙNG PHƯƠNG. Khảo sát Lớp 12 chỉ dùng Bậc 3, Phân thức 1/1, Phân thức 2/1.
-2. TRẮC NGHIỆM SOCRATIC: Sinh chính xác 3 câu trắc nghiệm (A, B, C, D). Kèm đáp án và giải thích gợi mở.
-3. TỰ LUẬN: Sinh 2 bài tập vận dụng kèm hướng dẫn POLYA 4 bước (Không giải chi tiết).
-TIÊU ĐỀ BẮT BUỘC:
-### PHẦN 1: TÓM TẮT CỐT LÕI
-### PHẦN 2: TRẮC NGHIỆM KHÁCH QUAN SOCRATIC
-### PHẦN 3: BÀI TẬP TỰ LUẬN
-"""
-                try:
-                    res_text = call_gemini_with_fallback(study_prompt)
-                    st.session_state.current_lesson = res_text
-                    st.session_state.current_topic = topic_input.strip()
-                    st.session_state.parsed_quiz = parse_quiz_questions(res_text)
-                    st.session_state.quiz_states = {}
-                except Exception as e:
-                    st.error(f"Lỗi: {e}")
-
-        if st.session_state.get("current_lesson"):
-            lesson_text = st.session_state.current_lesson
-            part2_split = re.split(r'(?i)(?:###\s*)?PHẦN 2[\:\.]?', lesson_text)
-            part3_split = re.split(r'(?i)(?:###\s*)?PHẦN 3[\:\.]?', lesson_text)
-            
-            if len(part2_split) > 0 and part2_split[0].strip():
-                cleaned_p1 = re.sub(r'\n\s*\n', '\n\n', part2_split[0].strip())
-                cleaned_p1 = re.sub(r'(?:\s*\-\-\-\s*)+$', '', cleaned_p1)
-                st.markdown(cleaned_p1)
-
-            quiz_list = st.session_state.get("parsed_quiz", [])
-            if quiz_list:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("### 🎯 Phần 2: Trắc nghiệm khách quan Socratic")
-                for idx, q in enumerate(quiz_list):
-                    st.markdown(f"**Câu {idx+1}:** `[{q['level']}]` {q['question']}")
-                    user_choice = st.radio(f"Chọn đáp án câu {idx+1}:", q['options'], key=f"q_{idx}", label_visibility="collapsed")
-                    if st.button(f"🔍 Kiểm tra câu {idx+1}", key=f"btn_{idx}"):
-                        if user_choice:
-                            choice_letter = re.sub(r'[^A-D]', '', user_choice.strip()[:3]).upper()[:1]
-                            if choice_letter == q['correct']: 
-                                st.session_state.quiz_states[idx] = ("correct", "🎉 Xuất sắc! Em tư duy rất chuẩn.")
-                            else: 
-                                st.session_state.quiz_states[idx] = ("incorrect", f"💡 **Gợi ý Socratic:** {q['explain']}")
-                        else:
-                            st.warning("Vui lòng chọn một đáp án!")
-                    if idx in st.session_state.quiz_states:
-                        status, msg = st.session_state.quiz_states[idx]
-                        if status == "correct": st.success(msg)
-                        else: st.warning("🤔 Suy ngẫm thêm gợi ý dưới đây nhé:"); st.info(msg)
-                    st.markdown("---")
-            elif len(part2_split) > 1 and "PHẦN 3" in part2_split[1].upper():
-                fallback_p2 = re.split(r'(?i)###\s*PHẦN\s*3', part2_split[1])[0]
-                st.markdown(fallback_p2.strip())
-            
-            if len(part3_split) > 1 and part3_split[-1].strip():
-                st.markdown("### ✍️ Phần 3: Bài tập tự luận & Hướng dẫn tư duy")
-                st.markdown(part3_split[-1].strip())
-
-        st.markdown("---")
-        st.markdown('<h4 style="color: #38bdf8; margin-top: 0; margin-bottom: 5px; font-weight: 800;">🔬 PHÒNG THÍ NGHIỆM ẢO THEO YÊU CẦU (VIRTUAL LAB)</h4>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #cbd5e1; font-size: 15px; margin-bottom: 12px;">Hệ thống AI đang liên kết trực tiếp với <b>Môn {subject} - Lớp {grade_num}</b>. Nhập yêu cầu mô phỏng đồ thị, tích phân, miền nghiệm, không gian 3D, hoặc sơ đồ tư duy:</div>', unsafe_allow_html=True)
-        
-        lab_command = st.text_input("Lệnh mô phỏng:", placeholder="Ví dụ Toán: Vẽ hình đa diện, khối chóp 3D, sơ đồ tư duy...", label_visibility="collapsed")
-        
-        if st.button("✨ Khởi chạy Phòng Lab", key=f"btn_lab_{st.session_state.active_context_key}") and lab_command.strip():
-            st.session_state.tram1_count += 1
-            with st.spinner("AI đang phân tích ngữ cảnh liên môn và dựng mô hình..."):
-                context_text = st.session_state.current_lesson if st.session_state.get("current_lesson") else "Không có ngữ cảnh bài học trước đó."
-                lab_prompt = f"""[HỆ TRI THỨC SƯ PHẠM QUỐC GIA - CHUẨN CT GDPT 2018 & QUY CHẾ THI 2026]
-Môn học: {subject} | Khối lớp: {grade_num}. 
-NGỮ CẢNH BÀI HỌC HIỆN TẠI:
-{context_text}
----
-Yêu cầu của học sinh: "{lab_command}"
-NHIỆM VỤ: Xuất DUY NHẤT 1 khối JSON hợp lệ phân loại mô hình trực quan (KHÔNG VIẾT CHỮ NGOÀI JSON).
-QUY TẮC PHÂN LOẠI:
-1. DIỆN TÍCH HÌNH PHẲNG: {{"type": "area", "func": "x**2 - 3*x + 2", "a": 0.0, "b": 3.0}}
-2. KHỐI TRÒN XOAY 3D: {{"type": "revolve_ox", "func": "2*x + 1", "a": 2.0, "b": 5.0}}
-3. HÀM BẬC 3: {{"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}}
-4. HÀM PHÂN THỨC 1/1: {{"type": "func_1_1", "a": 1, "b": 1, "c": 1, "d": -1}}
-5. HÀM PHÂN THỨC 2/1: {{"type": "func_2_1", "a": 1, "b": -2, "c": 2, "d": 1, "e": -1}}
-6. PARABOL BẬC 2: {{"type": "parabola", "a": 1, "b": -2, "c": 1}}
-7. KHÔNG GIAN OXYZ: {{"type": "oxyz", "x": 2, "y": 3, "z": 4}}
-8. MÔ PHỎNG NÂNG CAO PYTHON PLOTLY (Hình đa diện Poly, Khối 3D, Miền nghiệm BPT...):
-   {{"type": "dynamic_code", "python_code": "fig = go.Figure()\\n# BẮT BUỘC DÙNG go.Mesh3d để vẽ Poly/Hình học không gian 3D. Khai báo đủ x, y, z và các mặt i, j, k.\\nfig.add_trace(go.Mesh3d(x=[0,1,0,0], y=[0,0,1,0], z=[0,0,0,1], i=[0,0,0,1], j=[1,1,2,2], k=[2,3,3,3], color='cyan', opacity=0.6))\\nfig.update_layout(scene=dict(aspectmode='cube'))"}}
-9. SƠ ĐỒ TƯ DUY: {{"type": "mermaid", "code": "graph LR\\nRoot[\\\"🎯 TIÊU ĐỀ\\\"] --> A[\\\"1. Nội dung\\\"]"}}
-"""
-                try:
-                    raw_json = call_gemini_with_fallback(lab_prompt, json_mode=True)
-                    raw_json = raw_json.strip()
-                    if raw_json.startswith("```json"): raw_json = raw_json[7:-3].strip()
-                    elif raw_json.startswith("```"): raw_json = raw_json[3:-3].strip()
-                    st.session_state.lab_data = json.loads(raw_json)
-                except Exception:
-                    st.session_state.lab_data = {"type": "func_3", "a": 1, "b": -3, "c": 0, "d": 2}
-
-        if st.session_state.get("lab_data"):
-            data = st.session_state.lab_data
-            st.success("✨ Đã khởi tạo mô phỏng Phòng Lab liên môn thành công!")
-            render_smart_lab(data)
-
-    # ------------------------------------------------------------------------------
-    # TRẠM 2: GIA SƯ SOCRATIC & NỘP BÀI
-    # ------------------------------------------------------------------------------
-    with tab2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader(f"✍️ Gia Sư Socratic Môn: {subject} - Lớp {grade_num}")
-        st.caption("Khung Tri Thức Chuẩn Hóa CT GDPT 2018 & SGK KNTT • Vấn đáp Socratic • Dẫn dắt tư duy, không giải hộ.")
-
-        if st.button("🔄 Xóa đối thoại cũ"): 
-            st.session_state.messages = []
-            st.session_state.chat = None
-            st.rerun()
-
-        socratic_system_instruction = f"""Bạn là Thầy giáo Gia Sư AI tại Trường THPT Tân Hiệp & Trung tâm Thiện Nhân.
-Học sinh đang học: Môn {subject} - Khối lớp: {grade_num}. Tên học sinh: {student_name}."""
-
-        uploaded_file = st.file_uploader("📸 Tải ảnh bài làm (JPG, PNG)", type=["jpg", "png", "jpeg"])
-        if uploaded_file:
-            st.image(Image.open(uploaded_file), caption="Bài làm của em", use_container_width=True)
-            if st.button("🚀 Bắt đầu nhận xét"):
-                st.session_state.tram2_count += 1
-                with st.spinner(f"Thầy đang đối chiếu chuẩn kiến thức SGK KNTT Lớp {grade_num}..."):
-                    try:
-                        full_res = call_gemini_with_fallback(
-                            [f"Học sinh {student_name} nộp ảnh bài làm môn {subject} Lớp {grade_num}. Thầy hãy soi kỹ bài làm và nhận xét Socratic:", Image.open(uploaded_file)], 
-                            system_instruction=socratic_system_instruction
-                        )
-                        student_fb = full_res.split("<DIAGNOSTIC>")[0].strip() if "<DIAGNOSTIC>" in full_res else full_res
-                        st.session_state.messages = [{"role": "user", "content": "*(Em đã nộp ảnh bài làm)*"}, {"role": "assistant", "content": student_fb}]
-                        st.rerun()
-                    except Exception as e: 
-                        st.error(f"Lỗi phân tích bài làm: {e}")
-
-        for m in st.session_state.get("messages", []):
-            with st.chat_message(m["role"]): 
-                st.markdown(m["content"])
-            
-        if len(st.session_state.get("messages", [])) > 0:
-            if q := st.chat_input("Em chưa hiểu chỗ nào, hãy hỏi Thầy nhé..."):
-                st.session_state.tram2_count += 1
-                st.session_state.messages.append({"role": "user", "content": q})
-                with st.chat_message("user"): st.markdown(q)
-                with st.chat_message("assistant"):
-                    with st.spinner("Thầy đang suy ngẫm câu hỏi của em..."):
-                        try:
-                            history_context = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-4:]])
-                            rep = call_gemini_with_fallback(
-                                f"Lịch sử đối thoại trước đó:\n{history_context}\nHọc sinh {student_name} hỏi: {q}\nThầy phản hồi gợi mở Socratic:",
-                                system_instruction=socratic_system_instruction
-                            )
-                            clean_rep = rep.split("<DIAGNOSTIC>")[0].strip()
-                            st.markdown(clean_rep)
-                            st.session_state.messages.append({"role": "assistant", "content": clean_rep})
-                        except Exception as e: 
-                            st.error(f"Lỗi phản hồi: {e}")
-
     # ------------------------------------------------------------------------------
     # TRẠM 3: KHẢO THÍ ĐỘC LẬP
     # ------------------------------------------------------------------------------
@@ -1312,7 +1137,7 @@ XUẤT DUY NHẤT 1 OBJECT JSON:
 
             st.success(f"🎉 **KẾT QUẢ KHẢO THÍ MÔN {subject.upper()} (LỚP {grade_num})!** Điểm số: **{final_score} / 10.0 điểm**")
 
-            # --- XUẤT BẢN LATEX CHUẨN BỘ 2026 (MÃ ĐỀ, NĂM ĐỘNG, CHỐNG RỚT DÒNG) ---
+            # --- XUẤT BẢN LATEX CHUẨN BỘ 2026 ---
             st.markdown("---")
             st.markdown("### 📄 Xuất Bản Đề Thi LaTeX Cho Overleaf (Chuẩn 100% Bộ GD&ĐT 2026)")
             latex_mode = st.radio("Định dạng xuất:", ["Chỉ xuất Đề thi in ấn", "Xuất Đề thi kèm Bảng đáp án"], horizontal=True)
