@@ -1260,12 +1260,10 @@ def parse_quiz_questions(text):
 # ==============================================================================
 st.markdown('<div class="main-header"><div class="main-title">🏫 GIA SƯ AI - HỆ SINH THÁI LỚP HỌC ĐẢO NGƯỢC</div><div class="sub-title">Trường THPT Tân Hiệp & Trung tâm Thiện Nhân • Đồng hành từ Lớp 6 đến Lớp 12</div><div style="margin-top: 8px;"><span class="badge-tag">Bộ sách: Kết Nối Tri Thức Với Cuộc Sống</span><span class="badge-tag" style="border-color: #34d399; color: #34d399; margin-left: 8px;">Chuẩn CT GDPT 2018 & Quy chế 2026</span></div></div>', unsafe_allow_html=True)
 
-# ==============================================================================
 
 
-# ==============================================================================
-# HỆ THỐNG PHÁT ÂM TIẾNG ANH BẢN NGỮ CHUẨN QUỐC TẾ (IELTS / TOEFL / PTE)
-# ==============================================================================
+
+
 # ==============================================================================
 # HỆ THỐNG PHÁT ÂM TIẾNG ANH BẢN NGỮ CHUẨN QUỐC TẾ (IELTS / TOEFL / PTE)
 # ==============================================================================
@@ -1888,8 +1886,8 @@ QUY TẮC PHÂN LOẠI MÔ HÌNH:
    {{"type": "parabola", "a": 1, "b": -2, "c": 1}}
 7. KHÔNG GIAN OXYZ:
    {{"type": "oxyz", "x": 2, "y": 3, "z": 4}}
-8. MÔ PHỎNG ĐỒ THỊ ĐỘNG PLOTLY (Miền nghiệm BPT, Đồ thị Tùy biến, Vật lý, Hóa học...):
-   {{"type": "dynamic_code", "python_code": "fig = go.Figure()\\nfig.add_trace(go.Scatter(x=[-5,5], y=[-5,5]))\\nsetup_pedagogical_oxy(fig, [-5, 5], [-5, 5])"}}
+8. MÔ PHỎNG NÂNG CAO PYTHON PLOTLY (Hình đa diện Poly, Khối 3D, Miền nghiệm BPT...):
+   {{"type": "dynamic_code", "python_code": "fig = go.Figure()\\n# BẮT BUỘC DÙNG go.Mesh3d để vẽ Poly/Hình học không gian 3D. Khai báo đủ x, y, z và các mặt i, j, k.\\nfig.add_trace(go.Mesh3d(x=[0,1,0,0], y=[0,0,1,0], z=[0,0,0,1], i=[0,0,0,1], j=[1,1,2,2], k=[2,3,3,3], color='cyan', opacity=0.6))\\nfig.update_layout(scene=dict(aspectmode='cube'))"}}
    (Lưu ý: Chỉ sử dụng các thư viện go, np, math, pd, px. Gọi setup_pedagogical_oxy ở cuối).
 9. SƠ ĐỒ TƯ DUY TƯƠNG TÁC THUYẾT TRÌNH (CHO TẤT CẢ CÁC MÔN VÀ CÁC KHỐI LỚP 6-12 CHUẨN KNTT):
    QUY CHUẨN SƠ ĐỒ BẮT BUỘC:
